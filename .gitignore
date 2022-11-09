@@ -6,6 +6,8 @@ __pycache__/
 # C extensions
 *.so
 
+post_later.db
+
 # Distribution / packaging
 .Python
 build/

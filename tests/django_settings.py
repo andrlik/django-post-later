@@ -32,7 +32,7 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": "django_quotes.db",
+        "NAME": "post_later.db",
         "ATOMIC_REQUESTS": True,
     }
 }
@@ -111,11 +111,11 @@ MIDDLEWARE = [
 # STATIC
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-root
-STATIC_ROOT = str(ROOT_DIR / "django_quotes/staticfiles")
+STATIC_ROOT = str(ROOT_DIR / "staticfiles")
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-url
 STATIC_URL = "/static/"
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
-STATICFILES_DIRS = [str(APPS_DIR / "django_quotes/static")]
+STATICFILES_DIRS = [str(APPS_DIR / "post_later/static")]
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
@@ -243,3 +243,18 @@ REST_FRAMEWORK["TEST_REQUEST_DEFAULT_FORMAT"] = "json"  # noqa
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 load_loguru(globals())
+
+# SOCIAL SERVICE CONNECTIONS
+#
+# ----------------------------------------------------------------------------
+
+# Set these values via your env or other secure method. These clients will be the same for every request.
+# Twitter Connection
+TWITTER_CONSUMER_KEY = ""
+TWITTER_CONSUMER_SECRET = ""
+TWITTER_CALLBACK_URL = "http://127.0.0.1:8000/twitterauth/callback/"
+
+# NOTE: Mastodon connections are per instance so they will all exist in the DB.
+# This will be used by both Twitter and Mastodon as the app name. Change
+# for your use accordingly.
+CLIENT_NAME = "PostLater"
