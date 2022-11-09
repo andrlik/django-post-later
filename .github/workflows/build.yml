@@ -24,15 +24,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.9", "3.10" ]
+        python-version: [ "3.9", "3.10", "3.11" ]
 
     steps:
+
+    - uses: extractions/setup-just@v1
 
     - name: Checkout Code Repository
       uses: actions/checkout@v3
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -48,14 +50,12 @@ jobs:
       run: |
         poetry config virtualenvs.in-project true
         poetry install
-    - name: Test with pytest
+    - name: Test with pytest, as well as linting, typing, and safety checks.
       run: |
 
         sqlite3 tests/post_later.db '.databases'
         poetry run python manage.py collectstatic --noinput
-        poetry run pytest --cov-report=
-        poetry run coverage lcov
-
+        just cibuild
 
     - name: Submit coverage data to coveralls.io
       uses: coverallsapp/github-action@master
