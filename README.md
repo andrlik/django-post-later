@@ -6,7 +6,7 @@
 [![Pre-commit enabled](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/andrlik/django-post-later/blob/main/.pre-commit-config.yaml)
 [![Security: bandit](https://img.shields.io/badge/security-bandit-green.svg)](https://github.com/PyCQA/bandit)
 [![Semantic versions](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--versions-e10079.svg)](https://github.com/andrlik/django-post-later/releases)
-[![Build status badge](https://github.com/andrlik/django-post-later/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/andrlik/django-post-later/actions/workflows/build.yml)
+[![Build status badge](https://github.com/andrlik/django-post-later/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/andrlik/django-post-later/actions/workflows/build.yml)
 [![Code coverage badge](https://coveralls.io/repos/github/andrlik/django-post-later/badge.svg?branch=main)](https://coveralls.io/github/andrlik/django-post-later?branch=main)
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://andrlik.github.io/django-post-later/)
 
