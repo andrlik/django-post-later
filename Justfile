@@ -48,7 +48,7 @@ check-codestyle:
 
 # Runs mypy type-checking.
 mypy:
-  poetry run mypy --install-types --non-interactive --config-file pyproject.toml ./
+  poetry run mypy --config-file pyproject.toml ./
 
 # Runs test suite.
 test:
@@ -68,8 +68,10 @@ _citest:
   poetry run pytest --cov-report=
   poetry run coverage lcov
 
+cisetup: _install
+
 # Do tests and linting for CI environment.
-cibuild: _citest check-codestyle mypy check-safety
+cibuild: update _citest check-codestyle mypy check-safety
 
 # Removes pycache directories and files.
 _pycache-remove:

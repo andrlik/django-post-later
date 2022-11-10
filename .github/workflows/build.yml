@@ -49,7 +49,7 @@ jobs:
     - name: Install dependencies
       run: |
         poetry config virtualenvs.in-project true
-        poetry install
+        just cisetup
     - name: Test with pytest, as well as linting, typing, and safety checks.
       run: |
 
