@@ -28,6 +28,7 @@ tweepy = {extras = ["async"], version = "^4.12.1"}
 httpx = "^0.23.0"
 pillow = "^9.3.0"
 django-stubs-ext = "^0.7.0"
+django-model-utils = "^4.2.0"
 
 
 [tool.poetry.dev-dependencies]

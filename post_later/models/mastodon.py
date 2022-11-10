@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from typing import Any
-
 from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from mastodon import Mastodon
+from model_utils.models import TimeStampedModel
+from rules.contrib.models import RulesModelBase, RulesModelMixin
 
 # Put your models here.
 
 
-class MastodonInstanceClient(models.Model):
+class MastodonInstanceClient(
+    RulesModelMixin, TimeStampedModel, models.Model, metaclass=RulesModelBase
+):
     """
     Represents a single mastodon instance with it's client credentials
     and base api url.
@@ -38,16 +39,20 @@ class MastodonInstanceClient(models.Model):
         ),
     )
 
-    def __str__(self):
+    def __str__(self):  # pragma: nocover
         return f"{self.api_base_url}-Key:({self.client_id})"
 
 
 def mastodon_account_directory_path(instance, filename):
-    return f"avatars/mastodon/account_{instance.maccount.id}/{filename}"
+    return f"avatars/mastodon/account_{instance.user_account.id}/{filename}"
 
 
-class MastodonAvatar(models.Model):
-    source_url = models.URLField(help_text=_("Original URL from mastodon instance."))
+class MastodonAvatar(
+    RulesModelMixin, TimeStampedModel, models.Model, metaclass=RulesModelBase
+):
+    source_url = models.URLField(
+        null=True, blank=True, help_text=_("Original URL from mastodon instance.")
+    )
     cached_avatar = models.ImageField(
         null=True,
         blank=True,
@@ -60,15 +65,13 @@ class MastodonAvatar(models.Model):
     )
     user_account = models.OneToOneField("MastodonUserAuth", on_delete=models.CASCADE)
 
-    async def update_cache(self):
-        """Update the cache based on the URL provided. This is best handled as an async task."""
-        pass
-
-    def __str__(self):
+    def __str__(self):  # pragma: nocover
         return f"{self.user_account.account_username} - {self.id} - Stale: {self.cache_stale}"
 
 
-class MastodonUserAuth(models.Model):
+class MastodonUserAuth(
+    RulesModelMixin, TimeStampedModel, models.Model, metaclass=RulesModelBase
+):
     """
     A user's authentication for given Mastodon account.
     """
@@ -101,15 +104,5 @@ class MastodonUserAuth(models.Model):
             return True
         return False
 
-    # TODO: This belongs in a view instead.
-    def get_auth_url(self) -> Any:
-        """Get the URL needed for the user to collect the User API Key."""
-        mastodon = Mastodon(
-            api_base_url=self.instance_client.api_base_url,
-            client_id=self.instance_client.client_id,
-            client_secret=self.instance_client.client_secret,
-        )
-        return mastodon.auth_request_url()
-
-    def __str__(self):
+    def __str__(self):  # pragma: nocover
         return f"{self.user} - @{self.account_username}@{self.instance_client.api_base_url[8:]}"
