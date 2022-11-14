@@ -1,0 +1,11 @@
+{% extends "post_later/app_base.html" %}
+{% load i18n %}
+{% block content %}
+<h1>{% translate "Unlink Account" %}</h1>
+<p>{% translate "Unlink the following account?" %}</p>
+<p><img class="account_avatar" src="{{ userauth.mastodonavatar.cached_avatar.url }}" /><a href="{{ userauth.instance_client.api_base_url }}/@{{ userauth.account_username }}">{{ userauth.account_username }}</a>
+<form method="post">
+  {% csrf_token %}
+  <a href="{% url 'post_later:mastodon_account_detail' id=userauth.id %}" class="btn secondary">{% translate "Go back" %}</a> <button class="btn error" type="submit">{% translate "Unlink" %}</button>
+</form>
+{% endblock %}

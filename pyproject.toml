@@ -70,8 +70,9 @@ colorama = "^0.4.4"
 
 [tool.poetry.group.dev.dependencies]
 factory-boy = "^3.2.1"
-respx = "^0.20.0"
 types-setuptools = "^65.5.0.2"
+pytest-httpx = "^0.21.2"
+responses = "^0.22.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

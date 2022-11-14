@@ -3,6 +3,8 @@ copyright: Copyright &copy; 2022 Daniel Andrlik
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Models: models.md
+  - Views: views.md
   - Changelog: changelog.md
   - Contributing: contributing.md
   - Code of Conduct: code_of_conduct.md
@@ -16,6 +18,7 @@ theme:
 repo_url: https://github.com/andrlik/django-post-later/
 plugins:
   - search
+  - autorefs
   - include-markdown
   - mkdocstrings:
       handlers:

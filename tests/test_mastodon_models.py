@@ -32,6 +32,23 @@ def test_only_create_unique_clients(mastodon_client):
 
 
 @pytest.mark.parametrize(
+    "client_id,client_secret,expected_result",
+    [
+        (None, None, False),
+        ("jdkjfdhjuiwejhf8w9yue498y", None, False),
+        (None, "kdjfodjdfj89Y*Y(*YH*(UOU", False),
+        ("jdkjfdhjuiwejhf8w9yue498y", "kdjfodjdfj89Y*Y(*YH*(UOU", True),
+    ],
+)
+def test_ready_property_for_client(client_id, client_secret, expected_result):
+    api_base_url = "https://mastodon.social"
+    mclient = MastodonInstanceClient.objects.create(
+        api_base_url=api_base_url, client_id=client_id, client_secret=client_secret
+    )
+    assert mclient.ready is expected_result
+
+
+@pytest.mark.parametrize(
     "user_key,account_username,user_secret,expected_result",
     [
         (None, None, None, False),

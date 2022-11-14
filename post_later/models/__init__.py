@@ -3,3 +3,5 @@ from .mastodon import (  # noqa: F401
     MastodonInstanceClient,
     MastodonUserAuth,
 )
+
+__all__ = ["MastodonAvatar", "MastodonInstanceClient", "MastodonUserAuth"]
