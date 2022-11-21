@@ -39,7 +39,7 @@ class MastodonAccountAddView(LoginRequiredMixin, FormView):
                 api_base_url=url
             )
             userauth = MastodonUserAuth.objects.create(
-                instance_client=client, user=self.request.user
+                instance_client=client, user=self.request.user  # type: ignore
             )
             redirect_url = reverse_lazy(
                 "post_later:mastodon_handle_auth", kwargs={"id": userauth.id}
@@ -189,7 +189,7 @@ class MastodonAccountListView(LoginRequiredMixin, ListView):
     context_object_name = "accounts"
 
     def get_queryset(self, *args, **kwargs):
-        return self.model.objects.filter(user=self.request.user)
+        return self.model.objects.filter(user=self.request.user)  # type: ignore
 
 
 class MastodonAccountDeleteView(  # type: ignore

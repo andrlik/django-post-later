@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
 from rules.contrib.models import RulesModel
 
-from ..rules import is_mastodon_user, is_valid_user
+from ..rules import is_mastodon_avatar_owner, is_owner, is_valid_user
+from .abstract import OwnedModel
 
 # Put your models here.
 
 
-class MastodonInstanceClient(TimeStampedModel, RulesModel):
+class MastodonInstanceClient(TimeStampedModel, models.Model):
     """
     Represents a single mastodon instance with it's client credentials
     and base api url.
@@ -95,8 +95,17 @@ class MastodonAvatar(TimeStampedModel, RulesModel):
     def __str__(self):  # pragma: nocover
         return f"{self.user_account.account_username} - {self.id} - Stale: {self.cache_stale}"
 
+    class Meta:
+        rules_permissions = {
+            "add": is_valid_user,
+            "read": is_mastodon_avatar_owner,
+            "edit": is_mastodon_avatar_owner,
+            "delete": is_mastodon_avatar_owner,
+            "list": is_valid_user,
+        }
 
-class MastodonUserAuth(TimeStampedModel, RulesModel):
+
+class MastodonUserAuth(TimeStampedModel, OwnedModel):
     """
     A user's authentication for given Mastodon account. Only the associated user can see, edit,
     or delete this object.
@@ -104,7 +113,7 @@ class MastodonUserAuth(TimeStampedModel, RulesModel):
     Attributes:
         instance_client (MastodonInstanceClient): Foreign key to our defined app for a given instance.
         account_username (str | None): The username for the account. Fetched from instance.
-        user (User): Foreign key to the `AUTH_USER_MODEL`.
+        owner (User): Foreign key to the `AUTH_USER_MODEL`.
         user_oauth_key (str | None): The oauth user key given by the instance.
         user_auth_token (str | None): The auth token used for credentially on all subsequent user requests.
     """
@@ -113,7 +122,6 @@ class MastodonUserAuth(TimeStampedModel, RulesModel):
         MastodonInstanceClient, on_delete=models.CASCADE
     )
     account_username = models.CharField(max_length=100, null=True, blank=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     user_oauth_key = models.CharField(
         max_length=250, null=True, blank=True, help_text=_("Users OAuth code.")
     )
@@ -143,8 +151,8 @@ class MastodonUserAuth(TimeStampedModel, RulesModel):
     class Meta:
         rules_permissions = {
             "add": is_valid_user,
-            "read": is_mastodon_user,
-            "edit": is_mastodon_user,
-            "delete": is_mastodon_user,
+            "read": is_owner,
+            "edit": is_owner,
+            "delete": is_owner,
             "list": is_valid_user,
         }
