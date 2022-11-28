@@ -31,5 +31,9 @@ Here you'll find the models that Post Later uses to manage data.
 ::: post_later.models.mastodon.MastodonAvatar
     handler: python
     options:
+      members:
+        - get_avatar
+        - fetch_avatar
+        - img_url
       show_root_toc_entry: false
       heading_level: 4

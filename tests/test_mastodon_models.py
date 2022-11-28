@@ -1,7 +1,5 @@
-# import httpx
+import httpx
 import pytest
-
-# import respx
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 
@@ -95,3 +93,20 @@ def test_upload_dir(mastodon_client, user):
     avatar = MastodonAvatar.objects.create(user_account=mua)
     expected_string = f"avatars/mastodon/account_{mua.id}/IMG_008.jpeg"
     assert mastodon_account_directory_path(avatar, "IMG_008.jpeg") == expected_string
+
+
+def test_no_cached_avatar(mastodon_uncached_avatar):
+    assert mastodon_uncached_avatar.img_url == mastodon_uncached_avatar.source_url
+
+
+def test_cached_avatar(mastodon_cached_avatar):
+    assert mastodon_cached_avatar.img_url != mastodon_cached_avatar.source_url
+
+
+def test_fetch_avatar(respx_mock, mastodon_uncached_avatar, img_bytes):
+    respx_mock.get(mastodon_uncached_avatar.source_url).mock(
+        return_value=httpx.Response(200, content=img_bytes.read())
+    )
+    mastodon_uncached_avatar.get_avatar()
+    assert not mastodon_uncached_avatar.cache_stale
+    assert mastodon_uncached_avatar.cached_avatar is not None
