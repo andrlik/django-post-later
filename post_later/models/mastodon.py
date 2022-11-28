@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from io import BytesIO
+
+import httpx
+from asgiref.sync import async_to_sync
 from django.conf import settings
+from django.core.files import File
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
@@ -94,6 +99,40 @@ class MastodonAvatar(TimeStampedModel, RulesModel):
 
     def __str__(self):  # pragma: nocover
         return f"{self.user_account.account_username} - {self.id} - Stale: {self.cache_stale}"
+
+    @property
+    def img_url(self):
+        """
+        Returns cached avatar url if exists, source url if not.
+        """
+        if self.cache_stale or self.cached_avatar is None:
+            return self.source_url
+        return self.cached_avatar.url
+
+    def get_avatar(self):
+        """
+        Calls the async fetch of avatar and saves results to model.
+        """
+        img_fetch = async_to_sync(self.fetch_avatar)
+        img = img_fetch()
+        if img is not None:
+            self.cached_avatar = img
+            self.cache_stale = False
+            self.save()
+
+    async def fetch_avatar(self):
+        """
+        Fetches the current avatar from remote server.
+        """
+        if self.cache_stale and self.source_url is not None:
+            async with httpx.AsyncClient() as client:
+                new_img_response = await client.get(self.source_url)
+            if new_img_response.status_code == 200:
+                new_img = File(
+                    BytesIO(new_img_response.content), name=f"{self.id}_cached_avatar"
+                )
+                return new_img
+        return None  # pragma: nocover
 
 
 class MastodonUserAuth(TimeStampedModel, RulesModel):
