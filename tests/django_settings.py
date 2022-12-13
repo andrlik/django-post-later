@@ -258,3 +258,6 @@ TWITTER_CALLBACK_URL = "http://127.0.0.1:8000/twitterauth/callback/"
 # This will be used by both Twitter and Mastodon as the app name. Change
 # for your use accordingly.
 CLIENT_NAME = "PostLater"
+
+POSTLATER_MAX_IMAGE_SIZE = 8  #MB
+POSTLATER_MAX_VIDEO_SIZE = 40 #MB

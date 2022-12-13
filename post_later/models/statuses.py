@@ -87,11 +87,11 @@ class MediaGroup(TimeStampedModel, OwnedModel):
 
 
 def media_directory_path(instance, filename):
-    return f"media_uploads/user_{instance.user.id}/%Y/%m/%d/"
+    return f"media_uploads/user_{instance.user.id}/%Y/%m/%d/{filename}"
 
 
 def media_thumbnail_directory_path(instance, filename):
-    return f"media_uploads/user_{instance.user.id}/thumbnails/%Y/%m/%d/"
+    return f"media_uploads/user_{instance.user.id}/thumbnails/%Y/%m/%d/{filename}"
 
 
 class ImageMedia(TimeStampedModel, AbstractMediaUpload):
