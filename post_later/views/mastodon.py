@@ -33,6 +33,11 @@ class MastodonAccountAddView(LoginRequiredMixin, FormView):
     template_name = "post_later/mastodon/link_account.html"
 
     def form_valid(self, form):
+        """
+        Uses the instance URL to create server client if needed, then proceeds to
+        authorization.
+        """
+
         url = form.cleaned_data["instance_url"]
         with transaction.atomic():
             client, created = MastodonInstanceClient.objects.get_or_create(
@@ -84,6 +89,10 @@ class HandleMastodonAuthView(
     permission_required = "post_later.edit_mastodonuserauth"
 
     def dispatch(self, request, *args, **kwargs):
+        """
+        If code is supplied, pull it out into a property.
+        """
+
         self.code = request.GET.get("code", None)
         return super().dispatch(request, *args, **kwargs)
 
@@ -157,6 +166,10 @@ class MastodonLoginView(
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """
+        Add mastodon error message to context data if login fails.
+        """
+
         context = super().get_context_data(**kwargs)
         context["mastodon_error"] = self.mastodon_error_text
         return context
@@ -189,6 +202,10 @@ class MastodonAccountListView(LoginRequiredMixin, ListView):
     context_object_name = "accounts"
 
     def get_queryset(self, *args, **kwargs):
+        """
+        Filter the queryset of accounts by the active user.
+        """
+
         return self.model.objects.filter(user=self.request.user)
 
 
@@ -207,4 +224,8 @@ class MastodonAccountDeleteView(  # type: ignore
     context_object_name = "userauth"
 
     def get_success_url(self):
+        """
+        Return the url for the account list of the user.
+        """
+
         return reverse_lazy("post_later:mastodon_account_list")

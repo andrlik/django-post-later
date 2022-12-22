@@ -75,6 +75,7 @@ pytest-httpx = "^0.21.2"
 responses = "^0.22.0"
 respx = "^0.20.1"
 pytest-asyncio = "^0.20.2"
+interrogate = "^1.5.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -175,3 +176,26 @@ addopts = [
 source = ["post_later"]
 omit = ["*migrations*", "*tests*", "*staticfiles*"]
 plugins = ["django_coverage_plugin"]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = false
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = true
+ignore-nested-functions = false
+ignore-nested-classes = true
+ignore-setters = false
+fail-under = 95
+exclude = ["setup.py", "conftest.py", "manage.py", "docs", "build", "tests", "post_later/migrations"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*", "__str__"]
+# possible values: 0 (minimal output), 1 (-v), 2 (-vv)
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
+omit-covered-files = false
+generate-badge = "."
+badge-format = "svg"
