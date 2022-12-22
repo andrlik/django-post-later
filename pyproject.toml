@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "django-post-later"
+name = "post-later"
 version = "0.1.0"
 description = """A simple django app for scheduling posts for Twitter, Mastodon, and others."""
 authors = ["Daniel Andrlik <daniel@andrlik.org>"]
@@ -12,7 +12,6 @@ classifiers = [
     "Framework :: Django",
 ]
 documentation = "https://andrlik.github.io/django-post-later/"
-
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -199,3 +198,6 @@ color = true
 omit-covered-files = false
 generate-badge = "."
 badge-format = "svg"
+
+[tool.check-wheel-contents]
+ignore = ["W004"]
