@@ -12,9 +12,7 @@ classifiers = [
     "Framework :: Django",
 ]
 documentation = "https://andrlik.github.io/django-post-later/"
-packages = [
-  { include = "post_later" },
-]
+
 
 [tool.poetry.dependencies]
 python = "^3.9"
