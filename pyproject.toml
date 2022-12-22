@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "django-post-later"
+name = "post-later"
 version = "0.1.0"
 description = """A simple django app for scheduling posts for Twitter, Mastodon, and others."""
 authors = ["Daniel Andrlik <daniel@andrlik.org>"]
-license = "BSD"
+license = "BSD-3-Clause"
 readme = "README.md"
 repository = "https://github.com/andrlik/django-post-later"
 homepage = "https://github.com/andrlik/django-post-later"
@@ -176,3 +176,29 @@ addopts = [
 source = ["post_later"]
 omit = ["*migrations*", "*tests*", "*staticfiles*"]
 plugins = ["django_coverage_plugin"]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = false
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = true
+ignore-nested-functions = false
+ignore-nested-classes = true
+ignore-setters = false
+fail-under = 95
+exclude = ["setup.py", "conftest.py", "manage.py", "docs", "build", "tests", "post_later/migrations"]
+ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*", "__str__"]
+# possible values: 0 (minimal output), 1 (-v), 2 (-vv)
+verbose = 2
+quiet = false
+whitelist-regex = []
+color = true
+omit-covered-files = false
+generate-badge = "."
+badge-format = "svg"
+
+[tool.check-wheel-contents]
+ignore = ["W004"]

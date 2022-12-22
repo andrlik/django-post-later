@@ -68,6 +68,10 @@ class MastodonInstanceClient(TimeStampedModel, models.Model):
 
 
 def mastodon_account_directory_path(instance, filename):
+    """
+    Returns the directory path for saving a user upload for a mastodon account.
+    """
+
     return f"avatars/mastodon/account_{instance.user_account.id}/{filename}"
 
 

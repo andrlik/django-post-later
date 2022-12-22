@@ -51,10 +51,18 @@ class AbstractMediaUpload(OwnedModel):
 
     @property
     def focus(self) -> Tuple[Decimal, Decimal]:
+        """
+        Return the focus property as a tuple.
+        """
+
         return (self.focus_x, self.focus_y)
 
     @property
     def is_image(self) -> bool:
+        """
+        Returns a bool if the mime_type of the file is an image.
+        """
+
         if self.mime_type in [
             "image/bmp",
             "image/gif",
@@ -87,10 +95,18 @@ class MediaGroup(TimeStampedModel, OwnedModel):
 
 
 def media_directory_path(instance, filename):
+    """
+    Returns upload directory for user media uploads.
+    """
+
     return f"media_uploads/user_{instance.user.id}/%Y/%m/%d/"
 
 
 def media_thumbnail_directory_path(instance, filename):
+    """
+    Returns upload directory for thumbnails generated from user media.
+    """
+
     return f"media_uploads/user_{instance.user.id}/thumbnails/%Y/%m/%d/"
 
 
@@ -121,6 +137,10 @@ class ImageMedia(TimeStampedModel, AbstractMediaUpload):
         return self.img.width == self.img.height
 
     def generate_thumbnail(self) -> None:
+        """
+        Generate a thumbnail version of the image.
+        """
+
         with Image.open(self.img.open("rb")) as img:
             orig_width, orig_height = img.size
             if orig_width > 200 or orig_width > 200:
