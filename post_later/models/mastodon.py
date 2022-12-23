@@ -99,7 +99,9 @@ class MastodonAvatar(TimeStampedModel, RulesModel):
         default=True,
         help_text=_("Should we refresh the cached image at next opportunity?"),
     )
-    user_account = models.OneToOneField("MastodonUserAuth", on_delete=models.CASCADE)
+    user_account = models.OneToOneField(
+        "MastodonUserAuth", on_delete=models.CASCADE, related_name="avatar"
+    )
 
     def __str__(self):  # pragma: nocover
         return f"{self.user_account.account_username} - {self.id} - Stale: {self.cache_stale}"
