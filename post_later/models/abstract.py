@@ -71,7 +71,7 @@ class RemoteUserAuthModel(models.Model):
         media_ids: list[str] = [],
         in_response_to_id: str | None = None,
         schedule_time: datetime | None = None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str | None]:
         """
         Sends the post to the remote server and either returns the remote id as a string
         or raises an exception on error.

@@ -4,7 +4,7 @@ from .mastodon import (  # noqa: F401
     MastodonUserAuth,
 )
 from .social_accounts import Account, AccountStats
-from .statuses import MediaAttachment
+from .statuses import MediaAttachment, ScheduledPost, ScheduledThread
 
 __all__ = [
     "MastodonAvatar",
@@ -13,4 +13,6 @@ __all__ = [
     "MediaAttachment",
     "Account",
     "AccountStats",
+    "ScheduledPost",
+    "ScheduledThread",
 ]

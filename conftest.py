@@ -3,11 +3,11 @@ from django.contrib.auth import get_user_model
 from django.core.files import File
 
 from post_later.models.mastodon import (
-    Account,
     MastodonAvatar,
     MastodonInstanceClient,
     MastodonUserAuth,
 )
+from post_later.models.social_accounts import Account
 from tests.factories.users import UserFactory
 from tests.mocked_byte_fixtures import async_img_bytes, img_bytes  # noqa
 

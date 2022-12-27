@@ -122,13 +122,13 @@ class MastodonAvatar(TimeStampedModel, RulesModel):
         }
 
     @property
-    def img_url(self):
+    def img_url(self) -> str | None:
         """
         Returns cached avatar url if exists, source url if not.
         """
         if self.cache_stale or self.cached_avatar is None:
             return self.source_url
-        return self.cached_avatar.url
+        return self.cached_avatar.url  # type: ignore
 
     def get_avatar(self):
         """

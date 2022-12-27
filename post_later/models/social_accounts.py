@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Type
+from typing import Optional
 
 import uuid
 
@@ -56,12 +56,18 @@ class Account(TimeStampedModel, OwnedModel):
     )
 
     @cached_property
-    def auth_object(self) -> Type[RemoteUserAuthModel] | None:
+    def auth_object(self) -> Optional[RemoteUserAuthModel]:
         """
         Return the related auth model instance for the given account.
         """
         try:
-            return getattr(self, f"{self.account_type}_auth")
+            oauth_object = getattr(self, f"{self.account_type}_auth")
+            if isinstance(oauth_object, RemoteUserAuthModel):
+                return oauth_object
+            else:
+                raise ValueError(
+                    "Auth object is not a subclass of RemoteUserAuthModel!"
+                )
         except ObjectDoesNotExist:
             return None
 

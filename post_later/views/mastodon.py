@@ -43,7 +43,7 @@ class MastodonAccountAddView(LoginRequiredMixin, FormView):
             client, created = MastodonInstanceClient.objects.get_or_create(
                 api_base_url=url
             )
-            new_account = Account.objects.create(user=self.request.user)
+            new_account = Account.objects.create(user=self.request.user)  # type: ignore
             userauth = MastodonUserAuth.objects.create(
                 instance_client=client,
                 user=self.request.user,  # type: ignore
