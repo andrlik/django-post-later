@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.files import File
 
 from post_later.models.mastodon import (
+    Account,
     MastodonAvatar,
     MastodonInstanceClient,
     MastodonUserAuth,
@@ -49,11 +50,15 @@ def mastodon_example_client():
 
 @pytest.fixture
 def mastodon_pending_user_auth(user, mastodon_example_client):
+    social_account = Account.objects.create(user=user)
     user_auth = MastodonUserAuth.objects.create(
-        instance_client=mastodon_example_client, user=user
+        instance_client=mastodon_example_client,
+        user=user,
+        social_account=social_account,
     )
     yield user_auth
     user_auth.delete()
+    social_account.delete()
 
 
 @pytest.fixture

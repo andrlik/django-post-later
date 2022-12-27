@@ -12,7 +12,7 @@ urlpatterns = [
         name="mastodon_add_account",
     ),
     path(
-        "mastodon/handle_auth/<int:id>/",
+        "mastodon/handle_auth/<uuid:id>/",
         view=views.HandleMastodonAuthView.as_view(),
         name="mastodon_handle_auth",
     ),
@@ -22,17 +22,17 @@ urlpatterns = [
         name="mastodon_account_list",
     ),
     path(
-        "mastodon/accounts/<int:id>/",
+        "mastodon/accounts/<uuid:id>/",
         view=views.MastodonAccountDetailView.as_view(),
         name="mastodon_account_detail",
     ),
     path(
-        "mastodon/accounts/<int:id>/authorize/",
+        "mastodon/accounts/<uuid:id>/authorize/",
         view=views.MastodonLoginView.as_view(),
         name="mastodon_account_login",
     ),
     path(
-        "mastodon/accounts/<int:id>/unlink/",
+        "mastodon/accounts/<uuid:id>/unlink/",
         view=views.MastodonAccountDeleteView.as_view(),
         name="mastodon_account_delete",
     ),

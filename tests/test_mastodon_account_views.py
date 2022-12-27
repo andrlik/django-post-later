@@ -10,6 +10,7 @@ from django.test import Client
 from django.urls import reverse
 
 from post_later.models.mastodon import MastodonInstanceClient, MastodonUserAuth
+from post_later.models.social_accounts import Account
 
 from .factories.users import UserFactory
 
@@ -317,9 +318,10 @@ def test_mastodon_account_login(
         )
         assert check_value.account_username == "trwnh"
         assert (
-            check_value.mastodonavatar.source_url
+            check_value.avatar.source_url
             == "https://files.mastodon.social/accounts/avatars/000/014/715/original/34aa222f4ae2e0a9.png"
         )
+        assert check_value.social_account.account_status == Account.AccountStatus.ACTIVE
     else:
         assert check_value.user_auth_token is None
 

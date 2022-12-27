@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from io import BytesIO
 
 import httpx
@@ -11,7 +12,8 @@ from model_utils.models import TimeStampedModel
 from rules.contrib.models import RulesModel
 
 from ..rules import is_mastodon_avatar_owner, is_owner, is_valid_user
-from .abstract import OwnedModel
+from .abstract import OwnedModel, RemoteUserAuthModel
+from .social_accounts import Account
 
 # Put your models here.
 
@@ -22,12 +24,14 @@ class MastodonInstanceClient(TimeStampedModel, models.Model):
     and base api url.
 
     Attributes:
+        id (uuid): Primary key for the client.
         api_base_url (str): The base URL for the Mastodon instance. We create a unique client for each URL.
         client_id (str | None): The client_id given to us by the remote instance.
         client_secret (str | None): The client secret given to us by the remote instance.
         vapid_key (str | None): The streaming key returned by the instance.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     api_base_url = models.URLField(
         unique=True,
         help_text=_("Unique url for instance, e.g. https://mastodon.social"),
@@ -80,12 +84,14 @@ class MastodonAvatar(TimeStampedModel, RulesModel):
     Represents the avatar associated with a given Mastodon account.
 
     Attributes:
+        id (uuid): Primary Key for the avatar.
         source_url (str): The URL of the static avatar image on the remote instance.
         cached_avatar (file | None): Our locally cached version of the remote image. Fetched asyncronously.
         cache_stale (bool): Indicates if the cache is stale and needs to be refreshed from remote instance.
         user_account (MastodonUserAuth): OneToOne relationship to MastodonUserAuth.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     source_url = models.URLField(
         null=True, blank=True, help_text=_("Original URL from mastodon instance.")
     )
@@ -150,7 +156,7 @@ class MastodonAvatar(TimeStampedModel, RulesModel):
         return None  # pragma: nocover
 
 
-class MastodonUserAuth(TimeStampedModel, OwnedModel):
+class MastodonUserAuth(TimeStampedModel, RemoteUserAuthModel, OwnedModel):
     """
     A user's authentication for given Mastodon account. Only the associated user can see, edit,
     or delete this object.
@@ -160,7 +166,7 @@ class MastodonUserAuth(TimeStampedModel, OwnedModel):
         account_username (str | None): The username for the account. Fetched from instance.
         owner (User): Foreign key to the `AUTH_USER_MODEL`.
         user_oauth_key (str | None): The oauth user key given by the instance.
-        user_auth_token (str | None): The auth token used for credentially on all subsequent user requests.
+        user_auth_token (str | None): The auth token used for credentialing on all subsequent user requests.
     """
 
     instance_client = models.ForeignKey(
@@ -176,6 +182,11 @@ class MastodonUserAuth(TimeStampedModel, OwnedModel):
         blank=True,
         help_text=_("Current auth token for user session."),
     )
+    social_account = models.OneToOneField(
+        Account,
+        related_name="mastodon_auth",
+        on_delete=models.CASCADE,
+    )
 
     @property
     def is_ready_post(self) -> bool:
@@ -189,6 +200,20 @@ class MastodonUserAuth(TimeStampedModel, OwnedModel):
         ):
             return True
         return False
+
+    def get_avatar_url(self) -> str | None:
+        """
+        Return the avatar_url from the related object.
+        """
+
+        return self.avatar.img_url
+
+    def get_username(self) -> str | None:
+        """
+        Get the username for the account.
+        """
+
+        return self.account_username
 
     def __str__(self):  # pragma: nocover
         return f"{self.user} - @{self.account_username}@{self.instance_client.api_base_url[8:]}"

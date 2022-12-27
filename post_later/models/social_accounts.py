@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from typing import Type
+
+import uuid
+
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
 
 from ..rules import is_owner, is_valid_user
-from .abstract import OwnedModel
+from .abstract import OwnedModel, RemoteUserAuthModel
 
 
 class Account(TimeStampedModel, OwnedModel):
@@ -16,15 +22,18 @@ class Account(TimeStampedModel, OwnedModel):
         account_type (str): The type of social account this represents, e.g. Mastodon
         account_status (str): The status of this account if not active.
         username (str): The username associated with this account.
+        auth_content_type (ContentType): foreign key to the content type of the related auth object.
+        auth_object_id (uuid): Primary key of the related auth object.
+        auth_object: Foreign Key to the related auth object.
     """
 
     class AccountType(models.TextChoices):
-        MASTODON = "mast", _("Mastodon")
+        MASTODON = "mastodon", _("Mastodon")
         TWITTER = (
             "twitter",
             _("Twitter"),
         )
-        INSTAGRAM = "insta", _("Instagram")
+        INSTAGRAM = "instagram", _("Instagram")
 
     class AccountStatus(models.TextChoices):
         PENDING = "pending", _("Created, but not authenticated yet.")
@@ -32,20 +41,62 @@ class Account(TimeStampedModel, OwnedModel):
         TRASHED = "trash", _("Pending deletion...")
 
     account_type = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=AccountType.choices,
         default=AccountType.MASTODON,
         help_text=_("What type of social account is this?"),
+        db_index=True,
     )
     account_status = models.CharField(
         max_length=10,
         choices=AccountStatus.choices,
         default=AccountStatus.PENDING,
         help_text=_("Status of account."),
+        db_index=True,
     )
-    username = models.CharField(
-        max_length=250, null=True, blank=True, help_text=_("Username of account")
-    )
+
+    @cached_property
+    def auth_object(self) -> Type[RemoteUserAuthModel] | None:
+        """
+        Return the related auth model instance for the given account.
+        """
+        try:
+            return getattr(self, f"{self.account_type}_auth")
+        except ObjectDoesNotExist:
+            return None
+
+    @cached_property
+    def username(self) -> str | None:
+        """
+        Query the username from the auth object if it exists.
+        """
+
+        if self.auth_object is not None:
+            return self.auth_object.get_username()
+        return None
+
+    @cached_property
+    def avatar_url(self) -> str | None:
+        """
+        Get the avatar url from the auth object if it exists.
+        """
+
+        if self.auth_object is not None:
+            return self.auth_object.get_avatar_url()
+        return None
+
+    def refresh_from_db(self, *args, **kwargs):  # pragma: nocover
+        """
+        Refresh this account from the db, and clear any cached_properties.
+        """
+
+        super().refresh_from_db(*args, **kwargs)
+        cached_properties = ["auth_object", "username", "avatar_url"]
+        for property in cached_properties:
+            try:
+                del self.__dict__[property]
+            except KeyError:  # pragma: nocover
+                pass
 
     def __str__(self):  # pragma: nocover
         return f"{self.username} ({self.get_account_type_display()}) [{self.get_account_status_display()}]"
@@ -63,8 +114,17 @@ class Account(TimeStampedModel, OwnedModel):
 class AccountStats(TimeStampedModel, models.Model):
     """
     Represents stats per account based on our usage.
+
+    Attributes:
+        id (uuid): Primary key of the stats object.
+        account (Account): Foreign key to the related account object.
+        num_posts_scheduled (int): Total number of posts that have been scheduled for this account.
+        num_posts_sent (int): Total number of posts successfully sent for this account.
+        num_threads_scheduled (int): Total number of threads that have been scheduled for this account.
+        num_threads_sent (int): Total number of threads successfully sent for this account.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     account = models.OneToOneField(
         Account, on_delete=models.CASCADE, related_name="stats"
     )

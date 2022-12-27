@@ -12,7 +12,7 @@ from mastodon import Mastodon, MastodonError
 from rules.contrib.views import PermissionRequiredMixin
 
 from ..forms import LinkMastodonAccountForm
-from ..models import MastodonAvatar, MastodonInstanceClient, MastodonUserAuth
+from ..models import Account, MastodonAvatar, MastodonInstanceClient, MastodonUserAuth
 
 
 class MastodonAccountAddView(LoginRequiredMixin, FormView):
@@ -43,8 +43,11 @@ class MastodonAccountAddView(LoginRequiredMixin, FormView):
             client, created = MastodonInstanceClient.objects.get_or_create(
                 api_base_url=url
             )
+            new_account = Account.objects.create(user=self.request.user)
             userauth = MastodonUserAuth.objects.create(
-                instance_client=client, user=self.request.user  # type: ignore
+                instance_client=client,
+                user=self.request.user,  # type: ignore
+                social_account=new_account,
             )
             redirect_url = reverse_lazy(
                 "post_later:mastodon_handle_auth", kwargs={"id": userauth.id}

@@ -9,6 +9,7 @@ from post_later.models.mastodon import (
     MastodonUserAuth,
     mastodon_account_directory_path,
 )
+from post_later.models.social_accounts import Account
 
 # from django.utils import timezone
 
@@ -72,23 +73,27 @@ def test_ready_property_for_client(client_id, client_secret, expected_result):
 def test_validity_check(
     mastodon_client, user, user_key, account_username, user_secret, expected_result
 ):
+    social_account = Account.objects.create(user=user)
     mua = MastodonUserAuth.objects.create(
         instance_client=mastodon_client,
         user=user,
         user_oauth_key=user_key,
         account_username=account_username,
         user_auth_token=user_secret,
+        social_account=social_account,
     )
     assert mua.is_ready_post == expected_result
 
 
 def test_upload_dir(mastodon_client, user):
+    social_account = Account.objects.create(user=user)
     mua = MastodonUserAuth.objects.create(
         instance_client=mastodon_client,
         user=user,
         user_oauth_key="jdkljdslkjf&U*&(*^&^*(^",
         user_auth_token="jfdlkjdsfiuUY&*(&*(^(",
         account_username="jeremy",
+        social_account=social_account,
     )
     avatar = MastodonAvatar.objects.create(user_account=mua)
     expected_string = f"avatars/mastodon/account_{mua.id}/IMG_008.jpeg"

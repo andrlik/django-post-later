@@ -17,6 +17,7 @@ from ..rules import is_owner, is_valid_user
 from ..utils import resize_image
 from ..validators import validate_focal_field_limit
 from .abstract import OwnedModel
+from .social_accounts import Account
 
 
 def media_directory_path(instance, filename):
@@ -47,6 +48,14 @@ class ScheduledThread(TimeStampedModel, OwnedModel):
         WAITING = "waiting", _("Awaiting Retry")
         COMPLETE = "complete", _("Completed")
 
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        help_text=_(
+            "Account where this thread is scheduled to be sent.",
+        ),
+        related_name="schedule_threads",
+    )
     seconds_between_posts = models.PositiveIntegerField(
         default=60,
         help_text=_(
@@ -130,6 +139,12 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
         related_name="posts",
         help_text=_("The scheduled thread this post is a part of."),
     )
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        help_text=_("Account where this post is scheduled to be sent."),
+        related_name="schedule_posts",
+    )
     thread_ordering = models.IntegerField(
         default=0,
         help_text=_("Used to order posts in a thread. Not used for solo posts."),
@@ -156,6 +171,9 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
     )
     remote_id = models.CharField(
         max_length=100, null=True, blank=True, help_text=_("Remote id of the post.")
+    )
+    remote_url = models.URLField(
+        null=True, blank=True, help_text=_("URL to view post on remote server.")
     )
     finished_at = models.DateTimeField(
         null=True,
@@ -222,6 +240,12 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
         null=True,
         blank=True,
         help_text=_("Description for visually impaired."),
+    )
+    remote_id = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text=_("Id for media on remote server if sent."),
     )
     focus_x = models.DecimalField(
         default=0.00,
