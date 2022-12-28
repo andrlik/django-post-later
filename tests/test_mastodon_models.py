@@ -10,6 +10,9 @@ from post_later.models.mastodon import (
     mastodon_account_directory_path,
 )
 from post_later.models.social_accounts import Account
+from post_later.rules import is_mastodon_avatar_owner
+
+from .factories.users import UserFactory
 
 # from django.utils import timezone
 
@@ -106,6 +109,12 @@ def test_no_cached_avatar(mastodon_uncached_avatar):
 
 def test_cached_avatar(mastodon_cached_avatar):
     assert mastodon_cached_avatar.img_url != mastodon_cached_avatar.source_url
+
+
+def test_predicate(user, mastodon_cached_avatar):
+    assert is_mastodon_avatar_owner(user, mastodon_cached_avatar)
+    user2 = UserFactory()
+    assert not is_mastodon_avatar_owner(user2, mastodon_cached_avatar)
 
 
 def test_fetch_avatar(respx_mock, mastodon_uncached_avatar, img_bytes):

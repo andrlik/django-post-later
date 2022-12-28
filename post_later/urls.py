@@ -6,6 +6,22 @@ app_name = "post_later"
 
 
 urlpatterns = [
+    path("socialaccounts/", view=views.AccountListView.as_view(), name="account_list"),
+    path(
+        "socialaccounts/create/",
+        view=views.AccountCreateView.as_view(),
+        name="account_create",
+    ),
+    path(
+        "socialaccounts/<uuid:id>/",
+        view=views.AccountDetailView.as_view(),
+        name="account_detail",
+    ),
+    path(
+        "socialaccounts/<uuid:id>/delete/",
+        view=views.AccountDeleteView.as_view(),
+        name="account_delete",
+    ),
     path(
         "mastodon/add_account/",
         view=views.MastodonAccountAddView.as_view(),

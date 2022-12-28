@@ -65,7 +65,7 @@ class Account(TimeStampedModel, OwnedModel):
             if isinstance(oauth_object, RemoteUserAuthModel):
                 return oauth_object
             else:
-                raise ValueError(
+                raise ValueError(  # pragma: nocover
                     "Auth object is not a subclass of RemoteUserAuthModel!"
                 )
         except ObjectDoesNotExist:
@@ -90,6 +90,16 @@ class Account(TimeStampedModel, OwnedModel):
         if self.auth_object is not None:
             return self.auth_object.get_avatar_url()
         return None
+
+    @cached_property
+    def remote_url(self) -> str | None:
+        """
+        Get the remote URL for the account profile.
+        """
+
+        if self.auth_object is not None:
+            return self.auth_object.get_remote_url()
+        return None  # pragma: nocover
 
     def refresh_from_db(self, *args, **kwargs):  # pragma: nocover
         """

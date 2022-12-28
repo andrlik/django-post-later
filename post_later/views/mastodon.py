@@ -151,6 +151,7 @@ class MastodonLoginView(
             )
             user_info = mclient.me()
             self.object.account_username = user_info["acct"]
+            self.object.account_url = user_info["url"]
             self.object.save()
             avatar, created = MastodonAvatar.objects.get_or_create(
                 user_account=self.object

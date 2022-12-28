@@ -48,6 +48,17 @@ def test_get_completed_username(mastodon_keyed_auth):
     )
 
 
+def test_get_blank_remote_url(mastodon_pending_user_auth):
+    assert mastodon_pending_user_auth.social_account.remote_url is None
+
+
+def test_get_completed_url(mastodon_active_auth):
+    assert (
+        mastodon_active_auth.social_account.remote_url
+        == f"{mastodon_active_auth.instance_client.api_base_url}/@johnnyFive"
+    )
+
+
 @pytest.mark.xfail
 def test_upload_media(mastodon_keyed_auth, img_bytes):
     img_file = File(BytesIO(img_bytes), name="test_image.jpeg")

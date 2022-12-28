@@ -9,7 +9,11 @@ from post_later.models.mastodon import (
 )
 from post_later.models.social_accounts import Account
 from tests.factories.users import UserFactory
-from tests.mocked_byte_fixtures import async_img_bytes, img_bytes  # noqa
+from tests.mocked_byte_fixtures import (  # noqa
+    async_img_bytes,
+    img_bytes,
+    small_img_bytes,
+)
 
 User = get_user_model()
 
@@ -71,6 +75,10 @@ def mastodon_keyed_auth(mastodon_pending_user_auth):
 @pytest.fixture
 def mastodon_active_auth(mastodon_keyed_auth):
     mastodon_keyed_auth.user_auth_token = "ZA-Yj3aBD8U8Cm7lKUp-lm9O9BmDgdhHzDeqsY8tlL0"
+    mastodon_keyed_auth.account_username = "johnnyFive"
+    mastodon_keyed_auth.account_url = (
+        f"{mastodon_keyed_auth.instance_client.api_base_url}/@johnnyFive"
+    )
     mastodon_keyed_auth.save()
     yield mastodon_keyed_auth
 

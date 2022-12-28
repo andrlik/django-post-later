@@ -182,6 +182,9 @@ class MastodonUserAuth(TimeStampedModel, RemoteUserAuthModel, OwnedModel):
         blank=True,
         help_text=_("Current auth token for user session."),
     )
+    account_url = models.URLField(
+        blank=True, null=True, help_text=_("URL of user profile on instance.")
+    )
     social_account = models.OneToOneField(
         Account,
         related_name="mastodon_auth",
@@ -214,6 +217,13 @@ class MastodonUserAuth(TimeStampedModel, RemoteUserAuthModel, OwnedModel):
         """
 
         return self.account_username
+
+    def get_remote_url(self) -> str | None:
+        """
+        Get the remote url for the profile on the mastodon instance.
+        """
+
+        return self.account_url
 
     def __str__(self):  # pragma: nocover
         return f"{self.user} - @{self.account_username}@{self.instance_client.api_base_url[8:]}"

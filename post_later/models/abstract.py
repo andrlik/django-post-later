@@ -57,6 +57,14 @@ class RemoteUserAuthModel(models.Model):
             self.__class__.__name__ + "get_username"
         )  # pragma: nocover
 
+    def get_remote_url(self) -> str | None:
+        """
+        Get the profile URL on the social service.
+        """
+        raise NotImplementedError(
+            self.__class__.__name__ + "get_remote_url"
+        )  # pragma: nocover
+
     def upload_media(self, media_object: File) -> str | None:
         """
         Upload a given media file to the remote server and return the media id.

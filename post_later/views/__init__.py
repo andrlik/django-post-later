@@ -6,6 +6,12 @@ from .mastodon import (
     MastodonAccountListView,
     MastodonLoginView,
 )
+from .social_accounts import (
+    AccountCreateView,
+    AccountDeleteView,
+    AccountDetailView,
+    AccountListView,
+)
 
 __all__ = [
     "HandleMastodonAuthView",
@@ -14,4 +20,8 @@ __all__ = [
     "MastodonAccountDetailView",
     "MastodonAccountListView",
     "MastodonLoginView",
+    "AccountListView",
+    "AccountCreateView",
+    "AccountDetailView",
+    "AccountDeleteView",
 ]

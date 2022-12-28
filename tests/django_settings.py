@@ -61,6 +61,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
+    "django_extensions",
     "drf_spectacular",
     "rules.apps.AutodiscoverRulesConfig",
 ]
@@ -258,3 +259,9 @@ TWITTER_CALLBACK_URL = "http://127.0.0.1:8000/twitterauth/callback/"
 # This will be used by both Twitter and Mastodon as the app name. Change
 # for your use accordingly.
 CLIENT_NAME = "PostLater"
+
+ENABLED_ACCOUNT_TYPES = [
+    "MASTODON",
+    # "INSTAGRAM",
+    # "TWITTER",
+]
