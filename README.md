@@ -26,6 +26,9 @@ A simple django app for scheduling posts for Twitter, Mastodon, and others.
 - Schedule RTs and Boosts.
 - Maybe Instagram posts? I dunno. I really hate doing anything with FB.
 
+Includes some basic templates for each view, but the assumption is that you will likely want to customize them. To keep dependencies
+manageable, we don't make any assumptions about your JS/CSS framework.
+
 ### Working
 
 - Nothing. This project just started, yo.

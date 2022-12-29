@@ -16,6 +16,10 @@ class OwnedModel(RulesModel):
     """
     An abstract model class that implements the basic ownership model
     and rules meta permission pattern.
+
+    Attributes:
+        id (uuid): Primary key for the model.
+        user (AUTH_USER_MODEL): Foreign key to the associated instance of the project's `AUTH_USER_MODEL`.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -39,6 +43,8 @@ class OwnedModel(RulesModel):
 class RemoteUserAuthModel(models.Model):
     """
     Abstract model that enables a consistent API for remote accounts.
+    Any connecting auth model intended to be used with `post_later.models.social_accounts.Account`
+    must be a subclass of this model.
     """
 
     def get_avatar_url(self) -> str | None:

@@ -60,7 +60,8 @@ class AccountCreateView(LoginRequiredMixin, FormView):
 
 class AccountDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """
-    View that shows the detail of a created account, including status, and some associated data.
+    View that shows the detail of a created account, including status, statistics, and associated
+    data from the linked auth object associated with the service.
     """
 
     model = Account

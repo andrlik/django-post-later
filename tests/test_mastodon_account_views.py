@@ -5,7 +5,6 @@ from typing import Callable
 import pytest
 import responses
 from django.contrib.auth.models import AbstractBaseUser
-from django.core.exceptions import ObjectDoesNotExist
 from django.test import Client
 from django.urls import reverse
 
@@ -43,7 +42,7 @@ def test_account_get_add_view_requires_login(
         assert "form" in response.context.keys()
         content = response.content.decode(response.charset)
         print(content)
-        assert reverse("post_later:mastodon_account_list") in response.content.decode(
+        assert reverse("post_later:account_list") in response.content.decode(
             response.charset
         )
     if expected_response == 302:
@@ -193,7 +192,8 @@ def test_mastodon_account_login(
             client.force_login(user=UserFactory())
     if should_complete and expected_response_location is None:
         expected_response_location = reverse(
-            "post_later:mastodon_account_detail", kwargs={"id": mastodon_keyed_auth.id}
+            "post_later:account_detail",
+            kwargs={"id": mastodon_keyed_auth.social_account.id},
         )
     if logged_in and correct_user:
         if auth_token:
@@ -324,141 +324,3 @@ def test_mastodon_account_login(
         assert check_value.social_account.account_status == Account.AccountStatus.ACTIVE
     else:
         assert check_value.user_auth_token is None
-
-
-@pytest.mark.parametrize(
-    "logged_in,correct_user,expected_response_code,expected_response_location",
-    [
-        (False, False, 302, "accounts/login"),
-        (True, False, 403, None),
-        (True, True, 200, None),
-    ],
-)
-def test_account_detail_view(
-    mastodon_active_auth: MastodonUserAuth,
-    user: User,
-    client: Client,
-    django_assert_max_num_queries: Callable,
-    logged_in: bool,
-    correct_user: bool,
-    expected_response_code: int,
-    expected_response_location: str | None,
-) -> None:
-    if logged_in:
-        if correct_user:
-            client.force_login(user=user)
-        else:
-            client.force_login(user=UserFactory())
-    test_url = reverse(
-        "post_later:mastodon_account_detail", kwargs={"id": mastodon_active_auth.id}
-    )
-    with django_assert_max_num_queries(50):
-        response = client.get(test_url)
-    assert response.status_code == expected_response_code
-    if expected_response_location is not None:
-        assert expected_response_location in response["Location"]
-
-
-@pytest.mark.parametrize(
-    "logged_in,correct_user,expected_response_code,expected_response_location,expected_record_count",
-    [
-        (False, False, 302, "accounts/login", 0),
-        (True, False, 200, None, 0),
-        (True, True, 200, None, 1),
-    ],
-)
-def test_mastodon_account_list_view(
-    mastodon_active_auth: MastodonUserAuth,
-    user: User,
-    client: Client,
-    django_assert_max_num_queries: Callable,
-    logged_in: bool,
-    correct_user: bool,
-    expected_response_code: int,
-    expected_response_location: str | None,
-    expected_record_count: int,
-) -> None:
-    if logged_in:
-        if correct_user:
-            client.force_login(user=user)
-        else:
-            client.force_login(user=UserFactory())
-    test_url = reverse("post_later:mastodon_account_list")
-    with django_assert_max_num_queries(50):
-        response = client.get(test_url)
-    assert response.status_code == expected_response_code
-    if expected_response_location is not None:
-        assert expected_response_location in response["Location"]
-    if expected_response_code == 200:
-        assert response.context["accounts"].count() == expected_record_count
-
-
-@pytest.mark.parametrize(
-    "logged_in,correct_user,expected_response_code,expected_response_location",
-    [
-        (False, False, 302, "accounts/login"),
-        (True, False, 403, None),
-        (True, True, 200, None),
-    ],
-)
-def test_mastodon_account_get_delete_view(
-    mastodon_active_auth: MastodonUserAuth,
-    user: User,
-    client: Client,
-    django_assert_max_num_queries: Callable,
-    logged_in: bool,
-    correct_user: bool,
-    expected_response_code: int,
-    expected_response_location: str | None,
-) -> None:
-    if logged_in:
-        if correct_user:
-            client.force_login(user=user)
-        else:
-            client.force_login(user=UserFactory())
-    test_url = reverse(
-        "post_later:mastodon_account_delete", kwargs={"id": mastodon_active_auth.id}
-    )
-    with django_assert_max_num_queries(50):
-        response = client.get(test_url)
-    assert response.status_code == expected_response_code
-    if expected_response_location is not None:
-        assert expected_response_location in response["Location"]
-
-
-@pytest.mark.parametrize(
-    "logged_in,correct_user,expected_response_code,expected_response_location,should_delete",
-    [
-        (False, False, 302, "accounts/login", False),
-        (True, False, 403, None, False),
-        (True, True, 302, reverse("post_later:mastodon_account_list"), True),
-    ],
-)
-def test_mastodon_account_post_delete_view(
-    mastodon_active_auth: MastodonUserAuth,
-    user: User,
-    client: Client,
-    django_assert_max_num_queries: Callable,
-    logged_in: bool,
-    correct_user: bool,
-    expected_response_code: int,
-    expected_response_location: str | None,
-    should_delete: bool,
-) -> None:
-    if logged_in:
-        if correct_user:
-            client.force_login(user=user)
-        else:
-            client.force_login(user=UserFactory())
-    record_pk = mastodon_active_auth.id
-    test_url = reverse("post_later:mastodon_account_delete", kwargs={"id": record_pk})
-    with django_assert_max_num_queries(50):
-        response = client.post(test_url, data={})
-    assert response.status_code == expected_response_code
-    if expected_response_location is not None:
-        assert expected_response_location in response["Location"]
-    if should_delete:
-        with pytest.raises(ObjectDoesNotExist):
-            MastodonUserAuth.objects.get(id=record_pk)
-    else:
-        assert MastodonUserAuth.objects.get(id=record_pk)

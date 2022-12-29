@@ -18,13 +18,14 @@ class Account(TimeStampedModel, OwnedModel):
     """
     Represents a remote social account that's a valid target to use in posting.
 
+    Utilizes a number of cached_property functions to collect data from a related
+    auth object associated with the account. The associated `AccountStats` model can
+    be accessed by related name `stats`.
+
     Attributes:
+        id (uuid): Primary key for account.
         account_type (str): The type of social account this represents, e.g. Mastodon
         account_status (str): The status of this account if not active.
-        username (str): The username associated with this account.
-        auth_content_type (ContentType): foreign key to the content type of the related auth object.
-        auth_object_id (uuid): Primary key of the related auth object.
-        auth_object: Foreign Key to the related auth object.
     """
 
     class AccountType(models.TextChoices):
@@ -58,7 +59,10 @@ class Account(TimeStampedModel, OwnedModel):
     @cached_property
     def auth_object(self) -> Optional[RemoteUserAuthModel]:
         """
+        Cached `@property`
+
         Return the related auth model instance for the given account.
+        Must be a subclass of `RemoteUserAuthModel`.
         """
         try:
             oauth_object = getattr(self, f"{self.account_type}_auth")
@@ -74,6 +78,8 @@ class Account(TimeStampedModel, OwnedModel):
     @cached_property
     def username(self) -> str | None:
         """
+        Cached `@property`
+
         Query the username from the auth object if it exists.
         """
 
@@ -84,6 +90,8 @@ class Account(TimeStampedModel, OwnedModel):
     @cached_property
     def avatar_url(self) -> str | None:
         """
+        Cached `@property`
+
         Get the avatar url from the auth object if it exists.
         """
 
@@ -94,6 +102,8 @@ class Account(TimeStampedModel, OwnedModel):
     @cached_property
     def remote_url(self) -> str | None:
         """
+        Cached `@property`
+
         Get the remote URL for the account profile.
         """
 
