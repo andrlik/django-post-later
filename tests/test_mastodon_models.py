@@ -1,7 +1,12 @@
+from __future__ import annotations
+
+from io import BytesIO
+
 import httpx
 import pytest
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AbstractBaseUser
 from django.db import IntegrityError
+from respx.router import MockRouter
 
 from post_later.models.mastodon import (
     MastodonAvatar,
@@ -17,12 +22,12 @@ from .factories.users import UserFactory
 # from django.utils import timezone
 
 
-User = get_user_model()
+User = AbstractBaseUser
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_only_create_unique_clients(mastodon_client):
+def test_only_create_unique_clients(mastodon_client: MastodonInstanceClient) -> None:
     instance_url = mastodon_client.api_base_url
     with pytest.raises(IntegrityError):
         MastodonInstanceClient.objects.create(
@@ -42,7 +47,9 @@ def test_only_create_unique_clients(mastodon_client):
         ("jdkjfdhjuiwejhf8w9yue498y", "kdjfodjdfj89Y*Y(*YH*(UOU", True),
     ],
 )
-def test_ready_property_for_client(client_id, client_secret, expected_result):
+def test_ready_property_for_client(
+    client_id: str | None, client_secret: str | None, expected_result: bool
+) -> None:
     api_base_url = "https://mastodon.social"
     mclient = MastodonInstanceClient.objects.create(
         api_base_url=api_base_url, client_id=client_id, client_secret=client_secret
@@ -74,9 +81,14 @@ def test_ready_property_for_client(client_id, client_secret, expected_result):
     ],
 )
 def test_validity_check(
-    mastodon_client, user, user_key, account_username, user_secret, expected_result
-):
-    social_account = Account.objects.create(user=user)
+    mastodon_client: MastodonInstanceClient,
+    user: User,
+    user_key: str | None,
+    account_username: str | None,
+    user_secret: str | None,
+    expected_result: bool,
+) -> None:
+    social_account = Account.objects.create(user=user)  # type: ignore
     mua = MastodonUserAuth.objects.create(
         instance_client=mastodon_client,
         user=user,
@@ -84,12 +96,12 @@ def test_validity_check(
         account_username=account_username,
         user_auth_token=user_secret,
         social_account=social_account,
-    )
+    )  # type: ignore
     assert mua.is_ready_post == expected_result
 
 
-def test_upload_dir(mastodon_client, user):
-    social_account = Account.objects.create(user=user)
+def test_upload_dir(mastodon_client: MastodonInstanceClient, user: User) -> None:
+    social_account = Account.objects.create(user=user)  # type: ignore
     mua = MastodonUserAuth.objects.create(
         instance_client=mastodon_client,
         user=user,
@@ -97,27 +109,29 @@ def test_upload_dir(mastodon_client, user):
         user_auth_token="jfdlkjdsfiuUY&*(&*(^(",
         account_username="jeremy",
         social_account=social_account,
-    )
+    )  # type: ignore
     avatar = MastodonAvatar.objects.create(user_account=mua)
     expected_string = f"avatars/mastodon/account_{mua.id}/IMG_008.jpeg"
     assert mastodon_account_directory_path(avatar, "IMG_008.jpeg") == expected_string
 
 
-def test_no_cached_avatar(mastodon_uncached_avatar):
+def test_no_cached_avatar(mastodon_uncached_avatar: MastodonAvatar) -> None:
     assert mastodon_uncached_avatar.img_url == mastodon_uncached_avatar.source_url
 
 
-def test_cached_avatar(mastodon_cached_avatar):
+def test_cached_avatar(mastodon_cached_avatar: MastodonAvatar) -> None:
     assert mastodon_cached_avatar.img_url != mastodon_cached_avatar.source_url
 
 
-def test_predicate(user, mastodon_cached_avatar):
+def test_predicate(user: User, mastodon_cached_avatar: MastodonAvatar) -> None:
     assert is_mastodon_avatar_owner(user, mastodon_cached_avatar)
     user2 = UserFactory()
     assert not is_mastodon_avatar_owner(user2, mastodon_cached_avatar)
 
 
-def test_fetch_avatar(respx_mock, mastodon_uncached_avatar, img_bytes):
+def test_fetch_avatar(
+    respx_mock: MockRouter, mastodon_uncached_avatar: MastodonAvatar, img_bytes: BytesIO
+) -> None:
     respx_mock.get(mastodon_uncached_avatar.source_url).mock(
         return_value=httpx.Response(200, content=img_bytes.read())
     )

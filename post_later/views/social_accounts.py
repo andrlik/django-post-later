@@ -82,7 +82,8 @@ class AccountDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView)
     context_object_name = "account"
     permission_required = "post_later.delete_account"
     template_name = "post_later/account_delete.html"
+    object: Account
 
     def get_success_url(self):
-        messages.success(self.request, _("Successfully deleted account."))
+        messages.success(self.request, _("Successfully deleted account."))  # type: ignore
         return reverse_lazy("post_later:account_list")

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from io import BytesIO
+
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.files.images import ImageFile
@@ -18,7 +22,7 @@ from post_later.validators import validate_focal_field_limit
         (5, True),
     ],
 )
-def test_focal_length_validator(input, raise_error):
+def test_focal_length_validator(input: float, raise_error: bool) -> None:
     if raise_error:
         with pytest.raises(ValidationError):
             validate_focal_field_limit(input)
@@ -26,7 +30,7 @@ def test_focal_length_validator(input, raise_error):
         assert validate_focal_field_limit(input) is None
 
 
-def test_resize_image_cover(img_bytes):
+def test_resize_image_cover(img_bytes: BytesIO) -> None:
     original_image_file = ImageFile(img_bytes, name="IMG_0008.jpeg")
     orig_size = original_image_file.size
     orig_height = original_image_file.height
@@ -40,7 +44,7 @@ def test_resize_image_cover(img_bytes):
     assert new_image.width == 200
 
 
-def test_resize_image_non_cover(img_bytes):
+def test_resize_image_non_cover(img_bytes: BytesIO) -> None:
     original_image_file = ImageFile(img_bytes, name="IMG_0008.jpeg")
     orig_size = original_image_file.size
     orig_height = original_image_file.height
@@ -57,7 +61,7 @@ def test_resize_image_non_cover(img_bytes):
     assert new_image.width < orig_width
 
 
-def test_resize_image_unnecessary(small_img_bytes):
+def test_resize_image_unnecessary(small_img_bytes: BytesIO) -> None:
     original_image_file = ImageFile(small_img_bytes, name="IMG_0008.jpeg")
     orig_size = original_image_file.size
     orig_height = original_image_file.height

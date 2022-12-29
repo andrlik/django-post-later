@@ -30,7 +30,7 @@ class AccountCreateForm(forms.Form):
                 account_choices.append((enum_value.value, enum_value.label))
             except KeyError:  # pragma: nocover
                 pass
-        self.fields["account_type"].choices = account_choices
+        self.fields["account_type"].choices = account_choices  # type: ignore
 
     account_type = forms.ChoiceField(
         choices=[],

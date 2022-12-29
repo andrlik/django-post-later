@@ -1,12 +1,20 @@
+from __future__ import annotations
+
+from typing import Callable
+
 import pytest
+from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import ObjectDoesNotExist
+from django.test import Client
 from django.urls import reverse
 
-from post_later.models import Account
+from post_later.models import Account, MastodonUserAuth
 
 from .factories.users import UserFactory
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+User = AbstractBaseUser
 
 
 @pytest.mark.parametrize(
@@ -23,13 +31,13 @@ pytestmark = pytest.mark.django_db(transaction=True)
     ],
 )
 def test_list_detail_views_require_login(
-    client,
-    django_assert_max_num_queries,
-    mastodon_keyed_auth,
-    view_name,
-    is_detail_view,
-    logged_in,
-):
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    mastodon_keyed_auth: MastodonUserAuth,
+    view_name: str,
+    is_detail_view: bool,
+    logged_in: bool,
+) -> None:
     if is_detail_view:
         url = reverse(
             f"post_later:{view_name}",
@@ -50,8 +58,11 @@ def test_list_detail_views_require_login(
 
 @pytest.mark.parametrize("correct_user", [(True,), (False,)])
 def test_list_view_user_specific(
-    client, django_assert_max_num_queries, mastodon_keyed_auth, correct_user
-):
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    mastodon_keyed_auth: MastodonUserAuth,
+    correct_user: bool,
+) -> None:
     url = reverse("post_later:account_list")
     if correct_user:
         client.force_login(user=mastodon_keyed_auth.user)
@@ -75,8 +86,12 @@ def test_list_view_user_specific(
     ],
 )
 def test_detail_views_require_permission(
-    client, django_assert_max_num_queries, mastodon_keyed_auth, view_name, correct_user
-):
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    mastodon_keyed_auth: MastodonUserAuth,
+    view_name: str,
+    correct_user: bool,
+) -> None:
     url = reverse(
         f"post_later:{view_name}", kwargs={"id": mastodon_keyed_auth.social_account.id}
     )
@@ -96,8 +111,12 @@ def test_detail_views_require_permission(
     "logged_in, correct_user", [(False, False), (True, False), (True, True)]
 )
 def test_deletion_requires_permission(
-    client, django_assert_max_num_queries, mastodon_active_auth, logged_in, correct_user
-):
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    mastodon_active_auth: MastodonUserAuth,
+    logged_in: bool,
+    correct_user: bool,
+) -> None:
     account_id = mastodon_active_auth.social_account.id
     url = reverse("post_later:account_delete", kwargs={"id": account_id})
     if logged_in:
@@ -132,14 +151,14 @@ def test_deletion_requires_permission(
     ],
 )
 def test_account_create_enforces_types(
-    client,
-    django_assert_max_num_queries,
-    user,
-    logged_in,
-    type_to_try,
-    expected_status_code,
-    expected_redirect_viewname,
-):
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    user: User,
+    logged_in: bool,
+    type_to_try: str,
+    expected_status_code: int,
+    expected_redirect_viewname: str | None,
+) -> None:
     url = reverse("post_later:account_create")
     if logged_in:
         client.force_login(user=user)
@@ -160,12 +179,12 @@ def test_account_create_enforces_types(
     [("mastodon", 1), ("twitter", 0), ("monkey", 0)],
 )
 def test_filtering_of_accounts(
-    client,
-    django_assert_max_num_queries,
-    mastodon_active_auth,
-    type_to_filter,
-    expected_result_count,
-):
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    mastodon_active_auth: MastodonUserAuth,
+    type_to_filter: str,
+    expected_result_count: int,
+) -> None:
     url = f"{reverse('post_later:account_list')}?account_type={type_to_filter}"
     client.force_login(user=mastodon_active_auth.user)
     with django_assert_max_num_queries(50):
@@ -174,7 +193,11 @@ def test_filtering_of_accounts(
     assert response.context["accounts"].count() == expected_result_count
 
 
-def test_pagination_loads(client, django_assert_max_num_queries, mastodon_keyed_auth):
+def test_pagination_loads(
+    client: Client,
+    django_assert_max_num_queries: Callable,
+    mastodon_keyed_auth: MastodonUserAuth,
+) -> None:
     url = f"{reverse('post_later:account_list')}?page=2"
     for x in range(60):
         Account.objects.create(user=mastodon_keyed_auth.user)

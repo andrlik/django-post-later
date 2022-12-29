@@ -2,57 +2,65 @@
 Test that the mastodon user auth model properly implements all the API methods
 that social account objects will expect to be able to use.
 """
+from __future__ import annotations
 
-from datetime import timedelta
+from typing import Any
+
+from datetime import datetime, timedelta
 from io import BytesIO
 
 import pytest
 import responses
+from django.contrib.auth.models import AbstractBaseUser
 from django.core.files import File
 from django.utils import timezone
 
+from post_later.models.mastodon import MastodonAvatar, MastodonUserAuth
 from post_later.models.social_accounts import Account
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_get_missing_auth_object(user):
-    account = Account.objects.create(user=user)
+User = AbstractBaseUser
+
+
+def test_get_missing_auth_object(user: User) -> None:
+    account = Account.objects.create(user=user)  # type: ignore
     assert account.auth_object is None
     assert account.username is None
     assert account.avatar_url is None
 
 
-def test_get_uncached_avatar_url(mastodon_uncached_avatar):
+def test_get_uncached_avatar_url(mastodon_uncached_avatar: MastodonAvatar) -> None:
     assert (
         mastodon_uncached_avatar.user_account.social_account.avatar_url
         == mastodon_uncached_avatar.img_url
     )
 
 
-def test_get_cached_avatar_url(mastodon_cached_avatar):
+def test_get_cached_avatar_url(mastodon_cached_avatar: MastodonAvatar) -> None:
     assert (
         mastodon_cached_avatar.user_account.social_account.avatar_url
         == mastodon_cached_avatar.img_url
     )
 
 
-def test_get_blank_username(mastodon_pending_user_auth):
+def test_get_blank_username(mastodon_pending_user_auth: MastodonUserAuth) -> None:
     assert mastodon_pending_user_auth.social_account.username is None
 
 
-def test_get_completed_username(mastodon_keyed_auth):
+def test_get_completed_username(mastodon_keyed_auth: MastodonUserAuth) -> None:
     assert (
         mastodon_keyed_auth.social_account.username
         == mastodon_keyed_auth.account_username
     )
 
 
-def test_get_blank_remote_url(mastodon_pending_user_auth):
+def test_get_blank_remote_url(mastodon_pending_user_auth: MastodonUserAuth) -> None:
     assert mastodon_pending_user_auth.social_account.remote_url is None
 
 
-def test_get_completed_url(mastodon_active_auth):
+def test_get_completed_url(mastodon_active_auth: MastodonUserAuth) -> None:
     assert (
         mastodon_active_auth.social_account.remote_url
         == f"{mastodon_active_auth.instance_client.api_base_url}/@johnnyFive"
@@ -60,8 +68,10 @@ def test_get_completed_url(mastodon_active_auth):
 
 
 @pytest.mark.xfail
-def test_upload_media(mastodon_keyed_auth, img_bytes):
-    img_file = File(BytesIO(img_bytes), name="test_image.jpeg")
+def test_upload_media(
+    mastodon_keyed_auth: MastodonUserAuth, img_bytes: BytesIO
+) -> None:
+    img_file = File(img_bytes, name="test_image.jpeg")
     media_rsp = responses.Response(
         method="POST",
         url=f"{mastodon_keyed_auth.instance.api_base_url}/api/v2/media",
@@ -100,12 +110,12 @@ def test_upload_media(mastodon_keyed_auth, img_bytes):
 @pytest.mark.parametrize(
     "content,media_ids,in_reply_to_id,schedule_time",
     [
-        ("I would like to have some ice cream.", None, None, None),
+        ("I would like to have some ice cream.", [], None, None),
         ("I would like to have THIS ice cream.", ["8272389"], None, None),
         ("Your ice cream looks good and I want it.", ["837837762"], "83761261", None),
         (
             "Ice cream on Tuesday?",
-            None,
+            [],
             None,
             (timezone.now() + timedelta(days=2)).strftime("%Y-%m-%dT%H:%S.%f%Z"),
         ),
@@ -124,8 +134,12 @@ def test_upload_media(mastodon_keyed_auth, img_bytes):
     ],
 )
 def test_send_post(
-    mastodon_keyed_auth, content, media_ids, in_reply_to_id, schedule_time
-):
+    mastodon_keyed_auth: MastodonUserAuth,
+    content: str,
+    media_ids: list[str],
+    in_reply_to_id: str | None,
+    schedule_time: datetime | None,
+) -> None:
     media_attachments = []
     if media_ids is not None and len(media_ids) > 0:
         for media in media_ids:
@@ -174,28 +188,28 @@ def test_send_post(
             "media_attachments": media_attachments,
         }
         if in_reply_to_id is not None:
-            response_json["params"]["in_reply_to_id"] = in_reply_to_id
+            response_json["params"]["in_reply_to_id"] = in_reply_to_id  # type: ignore
     else:
         response_json = {
             "id": "103270115826048975",
             "created_at": "2019-12-08T03:48:33.901Z",
-            "in_reply_to_id": None,
-            "in_reply_to_account_id": None,
-            "sensitive": False,
+            "in_reply_to_id": None,  # type: ignore
+            "in_reply_to_account_id": None,  # type: ignore
+            "sensitive": False,  # type: ignore
             "spoiler_text": "",
             "visibility": "public",
             "language": "en",
             "uri": f"https://{mastodon_keyed_auth.instance.api_base_url}/users/{mastodon_keyed_auth.account_username}/statuses/103270115826048975",  # noqa: E501
             "url": f"https://{mastodon_keyed_auth.instance.api_base_url}/@{mastodon_keyed_auth.account_username}/103270115826048975",  # noqa: E501
-            "replies_count": 5,
-            "reblogs_count": 6,
-            "favourites_count": 11,
-            "favourited": False,
-            "reblogged": False,
-            "muted": False,
-            "bookmarked": False,
+            "replies_count": 5,  # type: ignore
+            "reblogs_count": 6,  # type: ignore
+            "favourites_count": 11,  # type: ignore
+            "favourited": False,  # type: ignore
+            "reblogged": False,  # type: ignore
+            "muted": False,  # type: ignore
+            "bookmarked": False,  # type: ignore
             "content": f"<p>{content}</p>",
-            "reblog": None,
+            "reblog": None,  # type: ignore
             "application": {"name": "Web", "website": None},
             "account": {
                 "id": "1",
@@ -224,8 +238,8 @@ def test_send_post(
             "mentions": [],
             "tags": [],
             "emojis": [],
-            "card": None,
-            "poll": None,
+            "card": None,  # type: ignore
+            "poll": None,  # type: ignore
         }
         if in_reply_to_id is not None:
             response_json["in_reply_to_id"] = in_reply_to_id
@@ -275,8 +289,11 @@ def test_send_post(
     ],
 )
 def test_username_search(
-    mastodon_keyed_auth, search_value, response_json, expected_length
-):
+    mastodon_keyed_auth: MastodonUserAuth,
+    search_value: str,
+    response_json: dict[str, Any],
+    expected_length: int,
+) -> None:
     resp = responses.Response(
         method="GET",
         url=f"{mastodon_keyed_auth.instance.api_base_url}/api/v2/search",

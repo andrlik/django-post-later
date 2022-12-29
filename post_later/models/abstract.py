@@ -96,7 +96,7 @@ class RemoteUserAuthModel(models.Model):
             self.__class__.__name__ + "send_post"
         )  # pragma: nocover
 
-    def username_search(self, name_fragment: str) -> list[str] | None:
+    def username_search(self, name_fragment: str) -> list[str]:
         """
         Given a fragment of a username, attempt to do a search on the remote server for use in
         tagging other accounts in a scheduled post.
