@@ -40,6 +40,18 @@ class ScheduledThread(TimeStampedModel, OwnedModel):
     """
     Model representing a scheduled thread that will be delivered
     incrementally to the service target.
+
+    Attributes:
+        account (Account): The social account this thread is to be sent.
+        seconds_between_posts (int): The number of seconds to wait between posts within the thread. Default 60.
+        send_at (datetime): When to begin posting the thread.
+        status (str): Current status of the thread. One of "pending", "started", "waiting", "complete".
+        started_at (datetime | None): When did this thread first begin sending posts.
+        next_publish (datetime | None): When the next post will be sent.
+        finished_at (datetime | None): When the thread finished sending all posts.
+        start_remote_id (str | None): Remote id of the first post in the thread.
+        next_id_to_reply (str | None): Remote post id to reply to for next post in thread.
+        end_remote_id (str | None): Remote id of the last post in the thread.
     """
 
     class ThreadStatus(models.TextChoices):
@@ -123,12 +135,29 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
     """
     Model representing a scheduled post for one or more connected
     services.
+
+    Attributes:
+        thread (ScheduledThread | None): If part of thread, this will be that link.
+        account (Account): The account this post is going to be sent to.
+        thread_ordering (int): The order number of this post in the thread, if applicable.
+        content (str): The text content of the post.
+        send_at (datetime | None): The time this post is scheduled to send. If part of a thread, the thread's send time is used.  # noqa: E501
+        queued_at (datetime | None): If queued on the remote server, i.e. Mastodon, when did we successfully send this?
+        remote_queue_id (str | None): If queued on the remote server, i.e. Mastodon, what's the scheduled status id?
+        post_status (str): Status of this post. One of "pending", "error", "failed", "queued", or "complete.
+        num_failures (int): Number of failures encountered sending this post.
+        next_retry (datetime | None): If failure has occurred, next scheduled attempt to send.
+        remote_id (str | None): Remote id of the post once sent.
+        remote_url (str | None): URL of the post on the remote server.
+        finished_at (datetime | None): When the post was successfully sent.
+        auto_boost_hours (int | None): How many hours after initial post to boost it again.
     """
 
     class PostStatus(models.TextChoices):
         PENDING = "pending", _("Pending")
         ERROR = "error", _("Error, awaiting retry.")
         FAILED = "failed", _("Failed to post after multiple retries. Giving up.")
+        QUEUED = "queued", _("Queued on remote server")
         COMPLETE = "complete", _("Sucessfully posted.")
 
     thread = models.ForeignKey(
@@ -156,6 +185,17 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
         help_text=_(
             "Scheduled time for post. Overriden if part of a scheduled thread."
         ),
+    )
+    queued_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Time this was successfully queued on the remote server."),
+    )
+    remote_queue_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text=_("Schedule post id if queued on remote server."),
     )
     post_status = models.CharField(
         max_length=10,
@@ -198,7 +238,21 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
 
 class MediaAttachment(TimeStampedModel, OwnedModel):
     """
-    Model representing a media attachment for a scheduled post.
+    Model representing a media attachment for a scheduled post. Initially uploaded before the post
+    is created, so we'll need a class method to clean up orphans that we can run periodically.
+
+    Attributes:
+        media_file (File): The file being uploaded. Must be an image or video.
+        mime_type (str): The introspected mime_type of the file.
+        thumbnail (ImageFile): A thumbnail, if available, for the file.
+        scheduled_post (ScheduledPost | None): The ScheduledPost to which this is attached.
+        width (int | None): For images, what is the width of the image.
+        height (int | None): For images, what is the height of the image.
+        video_duration (int | None): If a video, what is the duration in seconds?
+        alt_text (str | None): Description of the media for the visually impaired.
+        remote_id (str | None): Remote id of the post after successfully posted.
+        focus_x (Decimal): Value between -1.0 to 1.0 for focus on the x-axis.
+        focus_y (Decimal): Value between -1.0 to 1.0 for focus on the y-axis.
     """
 
     media_file = models.FileField(
@@ -232,8 +286,8 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
     height = models.PositiveIntegerField(
         null=True, blank=True, help_text=_("Height of media if image.")
     )
-    video_duration = models.PositiveIntegerField(
-        null=True, blank=True, help_text=_("Duration of video, if applicable.")
+    duration = models.PositiveIntegerField(
+        null=True, blank=True, help_text=_("Duration of video or audio, if applicable.")
     )
     alt_text = models.CharField(
         max_length=1000,

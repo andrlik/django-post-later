@@ -95,3 +95,55 @@ must link to an instance [`Account`](#account), and must be a subclass of [`Remo
         - img_url
       show_root_toc_entry: false
       heading_level: 4
+      
+## Twitter Models
+
+To do if Twitter doesn't fall down and explode by the time I get to it.
+
+## Instagram Models
+
+To do if I decide to add support for it. *hisssssss*
+
+
+## Scheduling Models
+
+These are the models used to scheduling any posts, threads, or media uploads to supported
+services.
+
+### `MediaAttachment`
+
+::: post_later.models.statuses.MediaAttachment
+    handler: python
+    options:
+      members:
+        - focus
+        - is_image
+        - is_square_image
+        - is_video
+        - is_audio
+        - generate_thumbnail
+      show_root_toc_entry: false
+      heading_level: 4
+      
+### `ScheduledThread`
+
+::: post_later.models.statuses.ScheduledThread
+    handler: python
+    options:
+      members:
+        - num_posts
+      show_root_toc_entry: false
+      heading_level: 4
+      
+      
+### `ScheduledPost`
+
+Note: There may be an arbitrary number of [`MediaAttachment`](#mediaattachment) objects attached to an instance of this.
+
+::: post_later.models.statuses.ScheduledPost
+    handler: python
+    options:
+      show_root_toc_entry: false
+      heading_level: 4
+
+
