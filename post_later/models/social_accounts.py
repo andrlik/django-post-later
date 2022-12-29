@@ -6,6 +6,7 @@ import uuid
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.urls import reverse
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
@@ -87,6 +88,16 @@ class Account(TimeStampedModel, OwnedModel):
             return self.auth_object.get_username()
         return None
 
+    @property
+    def remote_queueing_enabled(self) -> bool:
+        """
+        Is remote queueing possible for this service?
+        """
+
+        if self.auth_object is not None and self.auth_object.allows_remote_queueing:
+            return True
+        return False
+
     @cached_property
     def avatar_url(self) -> str | None:
         """
@@ -123,6 +134,13 @@ class Account(TimeStampedModel, OwnedModel):
                 del self.__dict__[property]
             except KeyError:  # pragma: nocover
                 pass
+
+    def get_absolute_url(self):
+        """
+        Returns the url for the detail view of this instance.
+        """
+
+        return reverse("post_later:account_detail", kwargs={"id": self.id})
 
     def __str__(self):  # pragma: nocover
         return f"{self.username} ({self.get_account_type_display()}) [{self.get_account_status_display()}]"

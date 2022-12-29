@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Iterable, Tuple
 
 import os
 import secrets
+from datetime import timedelta
 from decimal import Decimal
 
 import blurhash
+from django.conf import settings
 from django.core.files import File
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
 from PIL import Image
@@ -88,6 +91,13 @@ class ScheduledThread(TimeStampedModel, OwnedModel):
         blank=True,
         help_text=_("If started, when will the next post publish?"),
     )
+    next_retry = models.DateTimeField(
+        null=True, blank=True, help_text=_("If in error, when will we retry next?")
+    )
+    num_failures = models.PositiveIntegerField(
+        default=0,
+        help_text=_("Number of failures encountered so far sending this thread."),
+    )
     finished_at = models.DateTimeField(
         null=True, blank=True, help_text=_("If finished, when was it completed?")
     )
@@ -120,6 +130,27 @@ class ScheduledThread(TimeStampedModel, OwnedModel):
         Returns the number of posts associated with this thread.
         """
         return self.posts.count()
+
+    @classmethod
+    async def find_jobs(cls) -> dict[str, Iterable]:
+        """
+        Find threads that need to have posts sent.
+        If their scheduled send is in the past, their next_retry is now past, or next_publish has past.
+
+        Returns a dict with three keys and a Queryset for each: "to_start", "next_post", "retries".
+        """
+        current_time = timezone.now()
+        return {
+            "to_start": cls.objects.filter(
+                status=cls.ThreadStatus.PENDING, send_at__lte=current_time
+            ).exclude(finished_at__notnull=True),
+            "next_post": cls.objects.filter(
+                status=cls.ThreadStatus.STARTED, next_publish__lte=current_time
+            ).exclude(finished_at__notnull=True),
+            "retries": cls.objects.filter(
+                status=cls.ThreadStatus.WAITING, next_retry__lte=current_time
+            ).exclude(finished_at__notnull=True),
+        }
 
     class Meta:
         rules_permissions = {
@@ -226,6 +257,58 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
         help_text=_("If set, how many hours after initial post to boost this again."),
     )
 
+    async def send_post(self) -> bool:
+        """
+        Attempt to send this post via the account. If fails, automatically queues a retry.
+        If failures exceed threshold, changes status to FAILED and gives up.
+
+        Returns a bool indicating whether it was successful.
+        """
+        # remote_media_ids = []
+        async for attachment in self.attachments.all():
+            pass
+        return False
+
+    def schedule_retry(self) -> None:
+        """
+        Set status to ERROR, schedule next retry, or declare the post a failure.
+        """
+        if self.num_failures == settings.MAX_POST_FAILURES - 1:
+            self.post_status = type(self).PostStatus.FAILED
+        else:
+            self.post_status = type(self).PostStatus.ERROR
+        self.num_failures = models.F("num_failures") + 1
+        if self.thread is None:
+            self.next_retry = timezone.now() + timedelta(
+                seconds=settings.POST_FAILURE_RETRY_WAIT
+            )
+        self.save()
+
+    @classmethod
+    async def find_jobs(cls) -> dict[str, Iterable]:
+        """
+        Find posts scheduled to send, retry, or follow-up on.
+
+        Returns a dict with four keys, each containing a Queryset: `to_send`, `retry`,`followup`, `boosts`.
+        """
+        current_time = timezone.now()
+        return {
+            "to_send": cls.objects.filter(
+                post_status=cls.PostStatus.PENDING, send_at__lte=current_time
+            ).exclude(thread__notnull=True),
+            "retry": cls.objects.filter(
+                post_status=cls.PostStatus.ERROR, next_retry__lte=current_time
+            ).exclude(thread__notnull=True),
+            "followup": cls.objects.filter(
+                post_status=cls.PostStatus.QUEUED, send_at__lte=current_time
+            ).exclude(thread__notnull=True),
+            "boosts": cls.objects.filter(
+                post_status=cls.PostStatus.COMPLETE,
+                auto_boost_hours__notnull=True,
+                auto_boost_completed=False,
+            ),
+        }
+
     class Meta:
         rules_permissions = {
             "add": is_valid_user,
@@ -255,6 +338,12 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
         focus_y (Decimal): Value between -1.0 to 1.0 for focus on the y-axis.
     """
 
+    class UploadStatus(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        ERROR = "error", _("Error, awaiting retry")
+        FAILED = "failed", _("Failed to upload after multiple attempts.")
+        COMPLETE = "complete", _("Uploaded successfully")
+
     media_file = models.FileField(
         upload_to=media_directory_path, help_text=_("Media being uploaded.")
     )
@@ -265,6 +354,15 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
         ),
         max_length=20,
         blank=True,
+    )
+    upload_status = models.CharField(
+        max_length=15,
+        choices=UploadStatus.choices,
+        default=UploadStatus.PENDING,
+        help_text=_("Status of the remote upload to service."),
+    )
+    num_failures = models.PositiveIntegerField(
+        default=0, help_text=_("Number of failures to upload this piece of media.")
     )
     thumbnail = models.ImageField(
         upload_to=media_thumbnail_directory_path,
@@ -373,6 +471,27 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
             hash = blurhash.encode(thumb_img.to_bytes(), x_components=3, y_components=3)
         self.thumbnail = File(thumb_img.to_bytes(), name=f"thumb_{hash}")
         self.save()
+
+    async def upload_media(self) -> str:
+        """
+        Attempt to upload the media to the remote server and return the remote id.
+        """
+        pass
+
+    @classmethod
+    async def clean_orphans(cls, min_age: int) -> int:
+        """
+        Clear out orphaned media files more than `min_age` days old.
+        Args:
+            min_age (int): Minumum age in days.
+
+        Returns number of records deleted.
+        """
+        cutoff_date = timezone.now() - timedelta(days=min_age)
+        num_deleted, objects_removed = await cls.objects.filter(
+            scheduled_post__isnull=True, created__lt=cutoff_date
+        ).adelete()
+        return num_deleted
 
     class Meta:
         rules_permissions = {

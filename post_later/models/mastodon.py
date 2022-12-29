@@ -31,6 +31,8 @@ class MastodonInstanceClient(TimeStampedModel, models.Model):
         vapid_key (str | None): The streaming key returned by the instance.
     """
 
+    allows_remote_queueing = True
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     api_base_url = models.URLField(
         unique=True,

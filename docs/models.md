@@ -48,6 +48,7 @@ must link to an instance [`Account`](#account), and must be a subclass of [`Remo
         - avatar_url
         - remote_url
         - refresh_from_db
+        - get_absolute_url
       show_root_toc_entry: false
       heading_level: 4
       
@@ -122,6 +123,8 @@ services.
         - is_video
         - is_audio
         - generate_thumbnail
+        - clean_orphans
+        - upload_media
       show_root_toc_entry: false
       heading_level: 4
       
@@ -132,8 +135,10 @@ services.
     options:
       members:
         - num_posts
+        - find_jobs
       show_root_toc_entry: false
       heading_level: 4
+      show_submodules: true
       
       
 ### `ScheduledPost`
@@ -143,7 +148,12 @@ Note: There may be an arbitrary number of [`MediaAttachment`](#mediaattachment) 
 ::: post_later.models.statuses.ScheduledPost
     handler: python
     options:
+      members:
+        - find_jobs
+        - send_post
+        - schedule_retry
       show_root_toc_entry: false
       heading_level: 4
+      show_submodules: true
 
 

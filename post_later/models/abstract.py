@@ -45,7 +45,12 @@ class RemoteUserAuthModel(models.Model):
     Abstract model that enables a consistent API for remote accounts.
     Any connecting auth model intended to be used with `post_later.models.social_accounts.Account`
     must be a subclass of this model.
+
+    Attributes:
+        allows_remote_queueing (bool): Does this service support sending posts to be scheduled on the remote server?
     """
+
+    allows_remote_queuing: bool
 
     def get_avatar_url(self) -> str | None:
         """
