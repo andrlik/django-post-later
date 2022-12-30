@@ -12,7 +12,21 @@ from rules.contrib.models import RulesModel
 from ..rules import is_owner, is_valid_user
 
 
-class OwnedModel(RulesModel):
+class UUIDModel(models.Model):
+    """
+    A base model that uses a UUID for the primary key.
+
+    Attributes:
+        id (uuid): Primary key for the model.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class OwnedModel(UUIDModel, RulesModel):
     """
     An abstract model class that implements the basic ownership model
     and rules meta permission pattern.
@@ -22,7 +36,6 @@ class OwnedModel(RulesModel):
         user (AUTH_USER_MODEL): Foreign key to the associated instance of the project's `AUTH_USER_MODEL`.
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

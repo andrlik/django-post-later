@@ -13,7 +13,7 @@ def is_owner(user, obj):
 @rules.predicate
 def is_mastodon_avatar_owner(user, obj):
     """
-    Returns ture if the avatar is owned by the user.
+    Returns true if the avatar is owned by the user.
     """
 
     return obj.user_account.user == user
@@ -26,3 +26,13 @@ def is_valid_user(user, obj):  # pragma: nocover
     """
 
     return rules.is_authenticated
+
+
+@rules.predicate
+def is_social_content_owner(user, obj):
+    """
+    Checks to ensure the user is also the owner of
+    the associated account.
+    """
+
+    return obj.account.user == user

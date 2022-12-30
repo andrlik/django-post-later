@@ -146,6 +146,7 @@ class Account(TimeStampedModel, OwnedModel):
         return f"{self.username} ({self.get_account_type_display()}) [{self.get_account_status_display()}]"
 
     class Meta:
+        ordering = ["account_type", "created"]
         rules_permissions = {
             "add": is_valid_user,
             "read": is_owner,

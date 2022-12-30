@@ -15,11 +15,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
 from PIL import Image
+from rules.contrib.models import RulesModel
 
-from ..rules import is_owner, is_valid_user
+from ..rules import is_social_content_owner, is_valid_user
 from ..utils import resize_image
 from ..validators import validate_focal_field_limit
-from .abstract import OwnedModel
+from .abstract import UUIDModel
 from .social_accounts import Account
 
 
@@ -29,17 +30,19 @@ def media_directory_path(instance, filename):
     """
     oldfilename, oldextension = os.path.splitext(filename)
     newfilename = secrets.token_urlsafe(20)
-    return f"media_uploads/user_{instance.user.id}/%Y/%m/%d/{newfilename}{oldextension}"
+    return f"media_uploads/user_{instance.account.user.id}/%Y/%m/%d/{newfilename}{oldextension}"
 
 
 def media_thumbnail_directory_path(instance, filename):
     """
     Returns upload directory for thumbnails generated from user media.
     """
-    return f"media_uploads/user_{instance.user.id}/thumbnails/%Y/%m/%d/{filename}"
+    return (
+        f"media_uploads/user_{instance.account.user.id}/thumbnails/%Y/%m/%d/{filename}"
+    )
 
 
-class ScheduledThread(TimeStampedModel, OwnedModel):
+class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
     """
     Model representing a scheduled thread that will be delivered
     incrementally to the service target.
@@ -155,14 +158,14 @@ class ScheduledThread(TimeStampedModel, OwnedModel):
     class Meta:
         rules_permissions = {
             "add": is_valid_user,
-            "read": is_owner,
-            "edit": is_owner,
-            "delete": is_owner,
+            "read": is_social_content_owner,
+            "edit": is_social_content_owner,
+            "delete": is_social_content_owner,
             "list": is_valid_user,
         }
 
 
-class ScheduledPost(TimeStampedModel, OwnedModel):
+class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
     """
     Model representing a scheduled post for one or more connected
     services.
@@ -289,7 +292,7 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
         """
         Find posts scheduled to send, retry, or follow-up on.
 
-        Returns a dict with four keys, each containing a Queryset: `to_send`, `retry`,`followup`, `boosts`.
+        Returns a dict with four keys, each containing a Queryset: `to_send`, `retry`,`followup`.
         """
         current_time = timezone.now()
         return {
@@ -302,24 +305,125 @@ class ScheduledPost(TimeStampedModel, OwnedModel):
             "followup": cls.objects.filter(
                 post_status=cls.PostStatus.QUEUED, send_at__lte=current_time
             ).exclude(thread__notnull=True),
+        }
+
+    class Meta:
+        rules_permissions = {
+            "add": is_valid_user,
+            "read": is_social_content_owner,
+            "edit": is_social_content_owner,
+            "delete": is_social_content_owner,
+            "list": is_valid_user,
+        }
+
+
+class ScheduledBoost(TimeStampedModel, UUIDModel, RulesModel):
+    """
+    Model representing a scheduled boost/retweet for a given remote post.
+
+    Attributes:
+        account (Account): Foreign Key to social account.
+        boost_status (str): The current status of the boost.
+        remote_url (str): URL of the remote post to boost.
+        remote_id (str | None): Derived remote id of the post, if any.
+        send_at (datetime): When should this boost be sent.
+        last_attempt_at (datetime | None): Last failed attempt to send.
+        num_failures (int): Number of failures so far.
+        next_retry (datetime | None): Next scheduled retry to send.
+        finished_at (datetime | None): When was boost successfully sent?
+    """
+
+    class BoostStatus(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        ERROR = "error", _("Error, awaiting retry")
+        FAILED = "failed", _("Failed to boost, giving up.")
+        COMPLETE = "complete", _("Boosted successfully")
+
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        help_text=_("Social account this is linked to."),
+    )
+    boost_status = models.CharField(
+        max_length=15,
+        choices=BoostStatus.choices,
+        default=BoostStatus.PENDING,
+        db_index=True,
+    )
+    remote_url = models.URLField(help_text=_("URL of the post to be boosted."))
+    remote_id = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text=_("Derived remote id of the post."),
+    )
+    send_at = models.DateTimeField(
+        help_text=_("When is this boost scheduled for?"), db_index=True
+    )
+    last_attempt_at = models.DateTimeField(
+        null=True, blank=True, help_text=_("Last failed attempt to send.")
+    )
+    num_failures = models.PositiveIntegerField(
+        default=0, help_text=_("Number of failures this boost has encountered.")
+    )
+    next_retry = models.DateTimeField(
+        null=True, blank=True, help_text=_("Next time to retry boost."), db_index=True
+    )
+    finished_at = models.DateTimeField(
+        null=True, blank=True, help_text=_("When did we succeed in the boost?")
+    )
+
+    async def send_boost(self) -> bool:
+        """
+        Attempts to send the boost to the remote service.
+
+        Returns bool to indicate if it was successful or not.
+        """
+        pass
+
+    def schedule_retry(self) -> None:
+        """
+        Evaluates the error and increments the fail count. Then determines if it
+        schedule a retry or give up.
+        """
+        self.last_attempt_at = timezone.now()
+        if self.num_failures >= settings.MAX_POST_FAILURES - 1:
+            self.boost_status = self.BoostStatus.FAILED
+        else:
+            self.boost_status = self.BoostStatus.ERROR
+            self.next_retry = timezone.now() + timedelta(
+                seconds=settings.POST_FAILURE_RETRY_WAIT
+            )
+        self.num_failures = models.F("num_failures") + 1
+        self.save()
+
+    @classmethod
+    async def find_jobs(cls) -> dict[str, Iterable]:
+        """
+        Finding pending tasks to boost or retry. Returns a
+        dict of Querysets with two keys: "boosts", "retries".
+        """
+        current_time = timezone.now()
+        return {
             "boosts": cls.objects.filter(
-                post_status=cls.PostStatus.COMPLETE,
-                auto_boost_hours__notnull=True,
-                auto_boost_completed=False,
+                boost_status=cls.BoostStatus.PENDING, send_at__lte=current_time
+            ),
+            "retries": cls.objects.filter(
+                boost_status=cls.BoostStatus.ERROR, next_retry__lte=current_time
             ),
         }
 
     class Meta:
         rules_permissions = {
             "add": is_valid_user,
-            "read": is_owner,
-            "edit": is_owner,
-            "delete": is_owner,
+            "read": is_social_content_owner,
+            "edit": is_social_content_owner,
+            "delete": is_social_content_owner,
             "list": is_valid_user,
         }
 
 
-class MediaAttachment(TimeStampedModel, OwnedModel):
+class MediaAttachment(TimeStampedModel, UUIDModel, RulesModel):
     """
     Model representing a media attachment for a scheduled post. Initially uploaded before the post
     is created, so we'll need a class method to clean up orphans that we can run periodically.
@@ -344,6 +448,11 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
         FAILED = "failed", _("Failed to upload after multiple attempts.")
         COMPLETE = "complete", _("Uploaded successfully")
 
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        help_text=_("Social account this media is associated with."),
+    )
     media_file = models.FileField(
         upload_to=media_directory_path, help_text=_("Media being uploaded.")
     )
@@ -483,7 +592,7 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
         """
         Clear out orphaned media files more than `min_age` days old.
         Args:
-            min_age (int): Minumum age in days.
+            min_age (int): Minimum age in days.
 
         Returns number of records deleted.
         """
@@ -496,8 +605,8 @@ class MediaAttachment(TimeStampedModel, OwnedModel):
     class Meta:
         rules_permissions = {
             "add": is_valid_user,
-            "read": is_owner,
-            "edit": is_owner,
-            "delete": is_owner,
+            "read": is_social_content_owner,
+            "edit": is_social_content_owner,
+            "delete": is_social_content_owner,
             "list": is_valid_user,
         }

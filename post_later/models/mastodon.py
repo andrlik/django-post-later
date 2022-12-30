@@ -171,6 +171,8 @@ class MastodonUserAuth(TimeStampedModel, RemoteUserAuthModel, OwnedModel):
         user_auth_token (str | None): The auth token used for credentialing on all subsequent user requests.
     """
 
+    allows_remote_queueing: bool = True
+
     instance_client = models.ForeignKey(
         MastodonInstanceClient, on_delete=models.CASCADE
     )

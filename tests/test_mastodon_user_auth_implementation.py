@@ -29,6 +29,11 @@ def test_get_missing_auth_object(user: User) -> None:
     assert account.auth_object is None
     assert account.username is None
     assert account.avatar_url is None
+    assert not account.remote_queueing_enabled
+
+
+def test_check_remote_queueing(mastodon_keyed_auth: MastodonUserAuth) -> None:
+    assert mastodon_keyed_auth.social_account.remote_queueing_enabled
 
 
 def test_get_uncached_avatar_url(mastodon_uncached_avatar: MastodonAvatar) -> None:

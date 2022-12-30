@@ -117,6 +117,7 @@ services.
     handler: python
     options:
       members:
+        - UploadStatus
         - focus
         - is_image
         - is_square_image
@@ -134,11 +135,11 @@ services.
     handler: python
     options:
       members:
+        - ThreadStatus
         - num_posts
         - find_jobs
       show_root_toc_entry: false
       heading_level: 4
-      show_submodules: true
       
       
 ### `ScheduledPost`
@@ -149,11 +150,24 @@ Note: There may be an arbitrary number of [`MediaAttachment`](#mediaattachment) 
     handler: python
     options:
       members:
+        - PostStatus
         - find_jobs
         - send_post
         - schedule_retry
       show_root_toc_entry: false
       heading_level: 4
-      show_submodules: true
+      
+### `ScheduledBoost`
+
+::: post_later.models.statuses.ScheduledBoost
+    handler: python
+    options:
+      members:
+        - BoostStatus
+        - find_jobs
+        - send_boost
+        - schedule_retry
+      show_root_toc_entry: false
+      heading_level: 4
 
 

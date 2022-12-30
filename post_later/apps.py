@@ -25,7 +25,7 @@ class PostLaterConfig(AppConfig):
         ]
         for setting in required_settings:
             if not hasattr(settings, setting):
-                raise MissingSettingsError(
+                raise MissingSettingsError(  # pragma: nocover
                     f"Post Later Impropery Configured: You must specify {setting} in your settings file."
                 )
         # if "TWITTER" in settings.ENABLED_ACCOUNT_TYPES:
