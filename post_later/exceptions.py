@@ -25,6 +25,14 @@ class ThreadSendFailure(Exception):
     pass
 
 
+class BoostSendFailure(Exception):
+    """
+    Raised when a boost fails to send.
+    """
+
+    pass
+
+
 class MissingSettingsError(ImproperlyConfigured):
     """
     Raised when essential settings are missing from the Django project.
