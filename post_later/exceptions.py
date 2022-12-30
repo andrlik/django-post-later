@@ -25,6 +25,23 @@ class ThreadSendFailure(Exception):
     pass
 
 
+class ThreadAlreadyComplete(Exception):
+    """
+    Raised when trying to ask a thread to send posts when it is already in a Failed or
+    Complete state.
+    """
+
+    pass
+
+
+class EmptyThreadException(Exception):
+    """
+    Raised when trying to query the next post for a thread, but it doesn't exist in the database.
+    """
+
+    pass
+
+
 class BoostSendFailure(Exception):
     """
     Raised when a boost fails to send.

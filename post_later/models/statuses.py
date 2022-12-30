@@ -8,7 +8,9 @@ from datetime import timedelta
 from decimal import Decimal
 
 import blurhash
+from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files import File
 from django.db import models
 from django.utils import timezone
@@ -17,6 +19,7 @@ from model_utils.models import TimeStampedModel
 from PIL import Image
 from rules.contrib.models import RulesModel
 
+from ..exceptions import EmptyThreadException, ThreadAlreadyComplete
 from ..rules import is_social_content_owner, is_valid_user
 from ..utils import resize_image
 from ..validators import validate_focal_field_limit
@@ -63,7 +66,7 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
     class ThreadStatus(models.TextChoices):
         PENDING = "pending", _("Pending")
         STARTED = "started", _("Started")
-        WAITING = "waiting", _("Awaiting Retry")
+        ERROR = "error", _("Error, Awaiting Retry")
         COMPLETE = "complete", _("Completed")
 
     account = models.ForeignKey(
@@ -133,6 +136,81 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
         Returns the number of posts associated with this thread.
         """
         return self.posts.count()
+
+    async def get_posts(self, pending_only: bool = False) -> Iterable:
+        """
+        Fetch the posts in the thread in order. Optionally limit it to posts
+        that are awaiting sending.
+
+        Args:
+            pending_only (bool): Only grab posts that are pending or awaiting retry.
+
+        Returns a Queryset.
+        """
+        posts = self.posts.all()
+        if pending_only:
+            posts = posts.filter(
+                post_status__in=[
+                    ScheduledPost.PostStatus.PENDING,
+                    ScheduledPost.PostStatus.ERROR,
+                ]
+            )
+        return posts.order_by("thread_ordering")
+
+    async def get_next_post(self) -> ScheduledPost:
+        """
+        Fetch the next post that needs to be sent.
+        """
+        return await self.get_posts(pending_only=True).afirst()
+
+    async def send_next_post(self) -> bool:
+        """
+        Looks up the next pending/retry post in the thread and attempts to send it.
+
+        Returns a bool indicating if the send was successful or not.
+        """
+        if self.status in [self.ThreadStatus.FAILED, self.ThreadStatus.COMPLETE]:
+            raise ThreadAlreadyComplete
+        try:
+            next_post = await self.get_next_post()
+        except ObjectDoesNotExist:
+            raise EmptyThreadException
+        result = await next_post.send_post()
+        next_post = await ScheduledPost.objects.aget(id=next_post.id)
+        if result:
+            if self.start_remote_id is None:
+                self.start_remote_id = next_post.remote_id
+            self.next_id_to_reply = next_post.remote_id
+            self.next_publish = timezone.now() + timedelta(
+                seconds=self.seconds_between_posts
+            )
+            posts_left = await self.get_posts(pending_only=True).count()
+            if posts_left > 0:
+                self.status = self.ThreadStatus.STARTED
+            else:
+                self.status = self.ThreadStatus.COMPLETE
+                self.end_remote_id = next_post.remote_id
+                self.finished_at = timezone.now()
+            sync_to_async(self.save())
+            return True
+        else:
+            sync_to_async(self.schedule_retry(next_post))
+        return False
+
+    def schedule_retry(self, post: ScheduledPost) -> None:
+        """
+        Scheduled the next retry for the post and evaluates if the thread should give up.
+        """
+        self.last_attempt_at = timezone.now()
+        self.num_failures = models.F("num_failures") + 1
+        if post.post_status == ScheduledPost.PostStatus.FAILED:
+            self.status = self.ThreadStatus.FAILED
+        else:
+            self.status = self.ThreadStatus.ERROR
+            self.next_retry = timezone.now() + timedelta(
+                seconds=settings.POST_FAILURE_RETRY_WAIT
+            )
+        self.save()
 
     @classmethod
     async def find_jobs(cls) -> dict[str, Iterable]:
@@ -527,7 +605,7 @@ class MediaAttachment(TimeStampedModel, UUIDModel, RulesModel):
         Return the focus property as a tuple.
         """
 
-        return (self.focus_x, self.focus_y)
+        return (self.focus_x, self.focus_y)  # pragma: nocover
 
     @property
     def is_image(self) -> bool:
