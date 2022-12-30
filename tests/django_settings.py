@@ -62,6 +62,7 @@ THIRD_PARTY_APPS = [
     "rest_framework.authtoken",
     "corsheaders",
     "django_extensions",
+    "crispy_forms",
     "drf_spectacular",
     "rules.apps.AutodiscoverRulesConfig",
 ]

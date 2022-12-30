@@ -1,11 +1,11 @@
 {% extends "post_later/app_base.html" %}
-{% load i18n %}
+{% load i18n crispy_form_tags %}
 {% block extratitle %}{% translate "Add Account" %} - {% endblock %}
 {% block content %}
 <h1>{% translate "Add new account" %}</h1>
 <form method="post">
   {% csrf_token %}
-  {{ form }}
+  {{ form|crispy }}
   <a href="{% url 'post_later:account_list' %}">{% translate "Go back to account list" %}</a> <button type="submit">{% translate "Add account" %}</button>
 </form>
 {% endblock %}
