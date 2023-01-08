@@ -5,14 +5,13 @@ from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
-from django.views.generic import DetailView, FormView, ListView, TemplateView
+from django.views.generic import FormView, TemplateView
 from django.views.generic.detail import SingleObjectMixin
-from django.views.generic.edit import DeleteView
 from mastodon import Mastodon, MastodonError
 from rules.contrib.views import PermissionRequiredMixin
 
 from ..forms import LinkMastodonAccountForm
-from ..models import MastodonAvatar, MastodonInstanceClient, MastodonUserAuth
+from ..models import Account, MastodonAvatar, MastodonInstanceClient, MastodonUserAuth
 
 
 class MastodonAccountAddView(LoginRequiredMixin, FormView):
@@ -33,13 +32,21 @@ class MastodonAccountAddView(LoginRequiredMixin, FormView):
     template_name = "post_later/mastodon/link_account.html"
 
     def form_valid(self, form):
+        """
+        Uses the instance URL to create server client if needed, then proceeds to
+        authorization.
+        """
+
         url = form.cleaned_data["instance_url"]
         with transaction.atomic():
             client, created = MastodonInstanceClient.objects.get_or_create(
                 api_base_url=url
             )
+            new_account = Account.objects.create(user=self.request.user)  # type: ignore
             userauth = MastodonUserAuth.objects.create(
-                instance_client=client, user=self.request.user  # type: ignore
+                instance_client=client,
+                user=self.request.user,  # type: ignore
+                social_account=new_account,
             )
             redirect_url = reverse_lazy(
                 "post_later:mastodon_handle_auth", kwargs={"id": userauth.id}
@@ -84,6 +91,10 @@ class HandleMastodonAuthView(
     permission_required = "post_later.edit_mastodonuserauth"
 
     def dispatch(self, request, *args, **kwargs):
+        """
+        If code is supplied, pull it out into a property.
+        """
+
         self.code = request.GET.get("code", None)
         return super().dispatch(request, *args, **kwargs)
 
@@ -110,7 +121,7 @@ class MastodonLoginView(
 ):
     """
     Requests an auth token from the Mastodon instance and saves it to `MastodonUserAuth`.
-    Then redirects to `MastodonAccountDetailView`. Otherwise, displays the error message
+    Then redirects to associated `AccountDetailView`. Otherwise, displays the error message
     received from Mastodon.
     """
 
@@ -139,6 +150,7 @@ class MastodonLoginView(
             )
             user_info = mclient.me()
             self.object.account_username = user_info["acct"]
+            self.object.account_url = user_info["url"]
             self.object.save()
             avatar, created = MastodonAvatar.objects.get_or_create(
                 user_account=self.object
@@ -149,7 +161,8 @@ class MastodonLoginView(
                 avatar.save()
             return HttpResponseRedirect(
                 reverse_lazy(
-                    "post_later:mastodon_account_detail", kwargs={"id": self.object.id}
+                    "post_later:account_detail",
+                    kwargs={"id": self.object.social_account.id},
                 )
             )
         except MastodonError as eme:
@@ -157,54 +170,10 @@ class MastodonLoginView(
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """
+        Add mastodon error message to context data if login fails.
+        """
+
         context = super().get_context_data(**kwargs)
         context["mastodon_error"] = self.mastodon_error_text
         return context
-
-
-class MastodonAccountDetailView(
-    LoginRequiredMixin, PermissionRequiredMixin, DetailView
-):
-    """
-    Detail view for the given account record.
-    """
-
-    model = MastodonUserAuth
-    pk_url_kwarg = "id"
-    select_related = ["instance_client", "mastodon_avatar"]
-    template_name = "post_later/mastodon/mastodon_account_detail.html"
-    permission_required = "post_later.read_mastodonuserauth"
-    context_object_name = "userauth"
-
-
-class MastodonAccountListView(LoginRequiredMixin, ListView):
-    """
-    Shows a list of the connected Mastodon accounts associated with the
-    logged in user.
-    """
-
-    model = MastodonUserAuth
-    select_related = ["instance_client", "mastodon_avatar"]
-    template_name = "post_later/mastodon/mastodon_account_list.html"
-    context_object_name = "accounts"
-
-    def get_queryset(self, *args, **kwargs):
-        return self.model.objects.filter(user=self.request.user)  # type: ignore
-
-
-class MastodonAccountDeleteView(  # type: ignore
-    LoginRequiredMixin, PermissionRequiredMixin, DeleteView
-):
-    """
-    Allows the user to delete the given linked Mastodon account if they own it.
-    """
-
-    model = MastodonUserAuth
-    pk_url_kwarg = "id"
-    select_related = ["instance_client", "mastodon_avatar"]
-    template_name = "post_later/mastodon/mastodon_account_delete.html"
-    permission_required = "post_later.delete_mastodonuserauth"
-    context_object_name = "userauth"
-
-    def get_success_url(self):
-        return reverse_lazy("post_later:mastodon_account_list")

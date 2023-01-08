@@ -46,6 +46,18 @@ check-codestyle:
   poetry run black --diff --check --config pyproject.toml ./
   poetry run darglint --verbosity 2 post_later tests
 
+# Run mkdocs to see if it is successful.
+docs:
+  poetry run mkdocs build
+
+# Run mkdocs and start a liveserver.
+docs-serve:
+  poetry run mkdocs serve
+
+# Deploy docs to GH Pages.
+docs-deploy:
+  poetry run mkdocs gh-deploy
+
 # Runs mypy type-checking.
 mypy:
   poetry run mypy --config-file pyproject.toml ./

@@ -5,6 +5,7 @@ nav:
   - Quickstart: quickstart.md
   - Models: models.md
   - Views: views.md
+  - Exceptions: exceptions.md
   - Changelog: changelog.md
   - Contributing: contributing.md
   - Code of Conduct: code_of_conduct.md

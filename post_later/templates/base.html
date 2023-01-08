@@ -1,7 +1,7 @@
-{% load i18n %}
+{% load i18n%}
 <html>
   <head>
-    <title>{% translate "Post Later" %}</title>
+    <title>{% block title %}{% endblock %}</title>
   </head>
   <body>
     {% block content %}{% endblock %}

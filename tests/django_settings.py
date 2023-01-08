@@ -61,6 +61,8 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
+    "django_extensions",
+    "crispy_forms",
     "drf_spectacular",
     "rules.apps.AutodiscoverRulesConfig",
 ]
@@ -261,3 +263,13 @@ CLIENT_NAME = "PostLater"
 
 POSTLATER_MAX_IMAGE_SIZE = 8  #MB
 POSTLATER_MAX_VIDEO_SIZE = 40 #MB
+
+ENABLED_ACCOUNT_TYPES = [
+    "MASTODON",
+    # "INSTAGRAM",
+    # "TWITTER",
+]
+
+MAX_POST_FAILURES = 20
+POST_FAILURE_RETRY_RATE = 120
+

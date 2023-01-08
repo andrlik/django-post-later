@@ -1,0 +1,39 @@
+{% extends "post_later/app_base.html" %}
+{% load i18n %}
+{% block extratitle %}{% translate "Account detail:" %} {{ account.username }} - {% endblock %}
+{% block content %}
+<h1>{% translate "Account detail" %}</h1>
+<figure>
+  {% if account.avatar_url %}<img src={{ account.avatar_url }} height=50, width=50 alt="account avatar" />{% endif %}
+  <dl>
+    <dt>{% translate "Account Type" %}</dt>
+    <dd>{{ account.get_account_type_display }}</dd>
+    <dt>{% translate "Account Status" %}</dt>
+    <dd>{{ account.get_account_status_display }}</dd>
+    <dt>{% translate "Account Username" %}</dt>
+    <dd>{{ account.username }}</dd>
+    <dt>{% translate "Account URL" %}</dt>
+    <dd>{% if account.remote_url %}<a href="{{ account.remote_url }}" target="_blank">{{ account.remote_url }}</a>{% else %}{% translate "Pending" %}{% endif %}</dd>
+  </dl>
+  <h2>{% translate "Statistics" %}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope='col'>{% translate "Total posts scheduled" %}</th>
+        <th scope='col'>{% translate "Total posts sent" %}</th>
+        <th scope='col'>{% translate "Total threads scheduled" %}</th>
+        <th scope='col'>{% translate "Total threads sent" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ account.stats.num_posts_scheduled }}</td>
+        <td>{{ account.stats.num_posts_sent }}</td>
+        <td>{{ account.stats.num_threads_scheduled }}</td>
+        <td>{{ account.stats.num_threads_sent }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <a href="{% url 'post_later:account_list' %}">{% translate "Back to account list" %}</a> {% if account.account_status == "pending" %}{# Add a link to a view that will allow us to resume the authentication process. #}{% endif %}<a href="{% url 'post_later:account_delete' id=account.id %}">{% translate "Delete account" %}</a>
+</figure>
+{% endblock %}

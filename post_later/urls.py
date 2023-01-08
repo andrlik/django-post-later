@@ -6,34 +6,35 @@ app_name = "post_later"
 
 
 urlpatterns = [
+    path("socialaccounts/", view=views.AccountListView.as_view(), name="account_list"),
+    path(
+        "socialaccounts/create/",
+        view=views.AccountCreateView.as_view(),
+        name="account_create",
+    ),
+    path(
+        "socialaccounts/<uuid:id>/",
+        view=views.AccountDetailView.as_view(),
+        name="account_detail",
+    ),
+    path(
+        "socialaccounts/<uuid:id>/delete/",
+        view=views.AccountDeleteView.as_view(),
+        name="account_delete",
+    ),
     path(
         "mastodon/add_account/",
         view=views.MastodonAccountAddView.as_view(),
         name="mastodon_add_account",
     ),
     path(
-        "mastodon/handle_auth/<int:id>/",
+        "mastodon/handle_auth/<uuid:id>/",
         view=views.HandleMastodonAuthView.as_view(),
         name="mastodon_handle_auth",
     ),
     path(
-        "mastodon/accounts/",
-        view=views.MastodonAccountListView.as_view(),
-        name="mastodon_account_list",
-    ),
-    path(
-        "mastodon/accounts/<int:id>/",
-        view=views.MastodonAccountDetailView.as_view(),
-        name="mastodon_account_detail",
-    ),
-    path(
-        "mastodon/accounts/<int:id>/authorize/",
+        "mastodon/accounts/<uuid:id>/authorize/",
         view=views.MastodonLoginView.as_view(),
         name="mastodon_account_login",
-    ),
-    path(
-        "mastodon/accounts/<int:id>/unlink/",
-        view=views.MastodonAccountDeleteView.as_view(),
-        name="mastodon_account_delete",
     ),
 ]

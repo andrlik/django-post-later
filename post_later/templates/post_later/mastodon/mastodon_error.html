@@ -4,5 +4,5 @@
 <h1>{% translate "Mastodon Error" %}</h1>
 <p>{% translate "The following error occurred while trying to authenticate with Mastodon:" %}</p>
 <p class="error_msg">{{ mastodon_error }}</p>
-<a href="{% url 'post_later:mastodon_account_list' %}" class="btn primary">{% translate "Go Back?"}</a>
+<a href="{% url 'post_later:account_list' %}" class="btn primary">{% translate "Go Back?"}</a>
 {% endblock %}

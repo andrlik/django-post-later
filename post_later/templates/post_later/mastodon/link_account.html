@@ -1,10 +1,10 @@
 {% extends "post_later/app_base.html" %}
-{% load i18n %}
+{% load i18n crispy_forms_tags %}
 {% block content %}
 <p>{% translate "Enter the full URL of your Mastodon server."%}</p>
 <form method="post">
   {% csrf_token %}
-  {{ form }}
-  <a class="btn primary" href="{% url 'post_later:mastodon_account_list' %}">{% translate "Cancel" %}</a><button class="btn primary" type="submit">{% translate "Link Account" %}</button>
+  {{ form|crispy }}
+  <a class="btn primary" href="{% url 'post_later:account_list' %}">{% translate "Cancel" %}</a><button class="btn primary" type="submit">{% translate "Link Account" %}</button>
 </form>
 {% endblock %}

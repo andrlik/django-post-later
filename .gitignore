@@ -28,6 +28,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+interrogate_badge.svg
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -229,3 +230,7 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# Binary files used only in local debugging.
+
+tests/ew_nh_twitter.jpg
