@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Any
 
 import os
 import secrets
@@ -45,7 +45,134 @@ def media_thumbnail_directory_path(instance, filename):
     )
 
 
-class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
+class PostStatus(models.TextChoices):
+    """
+    Default choices for ScheduledSendModel.
+    """
+
+    PENDING = "pending", _("Pending")
+    ERROR = "error", _("Error, awaiting retry.")
+    FAILED = "failed", _("Failed to post after multiple retries. Giving up.")
+    QUEUED = "queued", _("Queued on remote server")
+    COMPLETE = "complete", _("Sucessfully posted.")
+
+
+class BaseScheduledSendModel(TimeStampedModel, UUIDModel, RulesModel):
+    """
+    Abstract model that represents an item that needs to be sent a remote account with
+    the ability to try, log failures, and retry later to a remote service.
+
+    NOTE: You will need to specify the `account` ForeignKey when you subclass this in
+    order to have comprehensible related names.
+
+    Attributes:
+        status_choices (models.TextChoices): choice object for the status info.
+        account (models.ForeignKey): Define this for each so that can set the related_name.
+        status (str): Current status of object.
+        send_at (datetime): When this item is scheduled to send.
+        num_failures (int): Number of failed attempts to send.
+        next_retry (datetime | None): When the next retry is scheduled for.
+        remote_id (str | None): Remote id of the published item on the target server.
+        remote_url (str | None): Remote URL of the published item on the target server.
+        queued_at (datetime | None): If target server supports queueing, what time was it successfully added to the queue.
+        remote_queue_id (str | None): If the target server supports queueing, what id did it assign to the object.
+        finished_at (datetime | None): When was the item fully published.
+    """
+
+    status_choices: models.TextChoices = PostStatus
+    account: models.ForeignKey
+
+    send_at = models.DateTimeField(
+        help_text=_("When to initiate sending to remote system."), db_index=True
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=status_choices.choices,
+        default=status_choices.PENDING,
+        help_text=_("Current status of object."),
+        db_index=True,
+    )
+    num_failures = models.PositiveIntegerField(
+        default=0, help_text=_("Number of failed attempts to send.")
+    )
+    last_attempt_at = models.DateTimeField(
+        null=True, blank=True, help_text=_("When was the last failed attempt occur?")
+    )
+    next_retry = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("If failed, when is the next attempt to send."),
+        db_index=True,
+    )
+    remote_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text=_("Id of sent item on the remote system."),
+    )
+    remote_url = models.URLField(
+        null=True, blank=True, help_text=_("URL of sent item on the remote system.")
+    )
+    queued_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "If the remotes system supports queuing, what time did we successfully queue for?"
+        ),
+    )
+    remote_queue_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text=_("What remote id did the target server give to the queued object?"),
+    )
+    finished_at = models.DateTimeField(
+        null=True, blank=True, help_text=_("When item was successfully sent.")
+    )
+
+    def send_item(self) -> bool:
+        """
+        Attempt to send the item via the `account` object and return a bool
+        indicating success or failure.
+        """
+        pass
+
+    async def asend_item(self) -> bool:
+        """
+        Attempt to send the item using a coroutine.
+        """
+        pass
+
+    def schedule_retry(self) -> None:
+        """
+        Set status to ERROR, schedule next retry, or declare the post a failure.
+        """
+        if self.num_failures == settings.MAX_POST_FAILURES - 1:
+            self.status = type(self).status_choices.FAILED
+        else:
+            self.status = type(self).status_choices.ERROR
+        self.num_failures = models.F("num_failures") + 1
+        self.next_retry = timezone.now() + timedelta(
+            seconds=settings.POST_FAILURE_RETRY_WAIT
+        )
+        self.save()
+
+    aschedule_retry = sync_to_async(schedule_retry)
+
+    @classmethod
+    async def find_jobs(cls) -> dict[str, Iterable]:
+        """
+        Find posts scheduled to send, retry, or follow-up on.
+
+        Returns a dict with four keys, each containing a Queryset: `to_send`, `retry`,`followup`.
+        """
+        raise NotImplementedError
+
+    class Meta:
+        abstract = True
+
+
+class ScheduledThread(BaseScheduledSendModel):
     """
     Model representing a scheduled thread that will be delivered
     incrementally to the service target.
@@ -69,6 +196,8 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
         ERROR = "error", _("Error, Awaiting Retry")
         COMPLETE = "complete", _("Completed")
 
+    status_choices = ThreadStatus
+
     account = models.ForeignKey(
         Account,
         on_delete=models.CASCADE,
@@ -83,10 +212,6 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
             "The number of seconds to wait between posting each subsequent post in the thread."
         ),
     )
-    send_at = models.DateTimeField(help_text=_("When to begin publishing the thread."))
-    status = models.CharField(
-        max_length=10, choices=ThreadStatus.choices, default=ThreadStatus.PENDING
-    )
     started_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -96,16 +221,7 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
         null=True,
         blank=True,
         help_text=_("If started, when will the next post publish?"),
-    )
-    next_retry = models.DateTimeField(
-        null=True, blank=True, help_text=_("If in error, when will we retry next?")
-    )
-    num_failures = models.PositiveIntegerField(
-        default=0,
-        help_text=_("Number of failures encountered so far sending this thread."),
-    )
-    finished_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("If finished, when was it completed?")
+        db_index=True,
     )
     start_remote_id = models.CharField(
         max_length=100,
@@ -197,16 +313,16 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
             sync_to_async(self.schedule_retry(next_post))
         return False
 
-    def schedule_retry(self, post: ScheduledPost) -> None:
+    def schedule_post_retry(self, post: ScheduledPost) -> None:
         """
         Scheduled the next retry for the post and evaluates if the thread should give up.
         """
         self.last_attempt_at = timezone.now()
         self.num_failures = models.F("num_failures") + 1
-        if post.post_status == ScheduledPost.PostStatus.FAILED:
-            self.status = self.ThreadStatus.FAILED
+        if post.status == PostStatus.FAILED:
+            self.status = self.status_choices.FAILED
         else:
-            self.status = self.ThreadStatus.ERROR
+            self.status = self.status_choices.ERROR
             self.next_retry = timezone.now() + timedelta(
                 seconds=settings.POST_FAILURE_RETRY_WAIT
             )
@@ -224,13 +340,13 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
         return {
             "to_start": cls.objects.filter(
                 status=cls.ThreadStatus.PENDING, send_at__lte=current_time
-            ).exclude(finished_at__notnull=True),
+            ),
             "next_post": cls.objects.filter(
                 status=cls.ThreadStatus.STARTED, next_publish__lte=current_time
-            ).exclude(finished_at__notnull=True),
+            ),
             "retries": cls.objects.filter(
-                status=cls.ThreadStatus.WAITING, next_retry__lte=current_time
-            ).exclude(finished_at__notnull=True),
+                status=cls.ThreadStatus.ERROR, next_retry__lte=current_time
+            ),
         }
 
     class Meta:
@@ -243,7 +359,7 @@ class ScheduledThread(TimeStampedModel, UUIDModel, RulesModel):
         }
 
 
-class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
+class ScheduledPost(BaseScheduledSendModel):
     """
     Model representing a scheduled post for one or more connected
     services.
@@ -256,7 +372,7 @@ class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
         send_at (datetime | None): The time this post is scheduled to send. If part of a thread, the thread's send time is used.  # noqa: E501
         queued_at (datetime | None): If queued on the remote server, i.e. Mastodon, when did we successfully send this?
         remote_queue_id (str | None): If queued on the remote server, i.e. Mastodon, what's the scheduled status id?
-        post_status (str): Status of this post. One of "pending", "error", "failed", "queued", or "complete.
+        status (str): Status of this post. One of "pending", "error", "failed", "queued", or "complete.
         num_failures (int): Number of failures encountered sending this post.
         next_retry (datetime | None): If failure has occurred, next scheduled attempt to send.
         remote_id (str | None): Remote id of the post once sent.
@@ -264,13 +380,6 @@ class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
         finished_at (datetime | None): When the post was successfully sent.
         auto_boost_hours (int | None): How many hours after initial post to boost it again.
     """
-
-    class PostStatus(models.TextChoices):
-        PENDING = "pending", _("Pending")
-        ERROR = "error", _("Error, awaiting retry.")
-        FAILED = "failed", _("Failed to post after multiple retries. Giving up.")
-        QUEUED = "queued", _("Queued on remote server")
-        COMPLETE = "complete", _("Sucessfully posted.")
 
     thread = models.ForeignKey(
         ScheduledThread,
@@ -291,47 +400,6 @@ class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
         help_text=_("Used to order posts in a thread. Not used for solo posts."),
     )
     content = models.TextField(help_text=_("What do you want to say?"))
-    send_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text=_(
-            "Scheduled time for post. Overriden if part of a scheduled thread."
-        ),
-    )
-    queued_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text=_("Time this was successfully queued on the remote server."),
-    )
-    remote_queue_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text=_("Schedule post id if queued on remote server."),
-    )
-    post_status = models.CharField(
-        max_length=10,
-        choices=PostStatus.choices,
-        default=PostStatus.PENDING,
-        help_text=_("Status of scheduled post."),
-    )
-    num_failures = models.PositiveIntegerField(
-        default=0, help_text=_("Number of failed attempts to post.")
-    )
-    next_retry = models.DateTimeField(
-        null=True, blank=True, help_text=_("Next time to retry to post.")
-    )
-    remote_id = models.CharField(
-        max_length=100, null=True, blank=True, help_text=_("Remote id of the post.")
-    )
-    remote_url = models.URLField(
-        null=True, blank=True, help_text=_("URL to view post on remote server.")
-    )
-    finished_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text=_("When post was successfully submitted to remote server."),
-    )
     auto_boost_hours = models.IntegerField(
         null=True,
         blank=True,
@@ -349,21 +417,6 @@ class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
         async for attachment in self.attachments.all():
             pass
         return False
-
-    def schedule_retry(self) -> None:
-        """
-        Set status to ERROR, schedule next retry, or declare the post a failure.
-        """
-        if self.num_failures == settings.MAX_POST_FAILURES - 1:
-            self.post_status = type(self).PostStatus.FAILED
-        else:
-            self.post_status = type(self).PostStatus.ERROR
-        self.num_failures = models.F("num_failures") + 1
-        if self.thread is None:
-            self.next_retry = timezone.now() + timedelta(
-                seconds=settings.POST_FAILURE_RETRY_WAIT
-            )
-        self.save()
 
     @classmethod
     async def find_jobs(cls) -> dict[str, Iterable]:
@@ -395,7 +448,7 @@ class ScheduledPost(TimeStampedModel, UUIDModel, RulesModel):
         }
 
 
-class ScheduledBoost(TimeStampedModel, UUIDModel, RulesModel):
+class ScheduledBoost(BaseScheduledSendModel):
     """
     Model representing a scheduled boost/retweet for a given remote post.
 
@@ -411,44 +464,11 @@ class ScheduledBoost(TimeStampedModel, UUIDModel, RulesModel):
         finished_at (datetime | None): When was boost successfully sent?
     """
 
-    class BoostStatus(models.TextChoices):
-        PENDING = "pending", _("Pending")
-        ERROR = "error", _("Error, awaiting retry")
-        FAILED = "failed", _("Failed to boost, giving up.")
-        COMPLETE = "complete", _("Boosted successfully")
-
     account = models.ForeignKey(
         Account,
         on_delete=models.CASCADE,
         help_text=_("Social account this is linked to."),
-    )
-    boost_status = models.CharField(
-        max_length=15,
-        choices=BoostStatus.choices,
-        default=BoostStatus.PENDING,
-        db_index=True,
-    )
-    remote_url = models.URLField(help_text=_("URL of the post to be boosted."))
-    remote_id = models.CharField(
-        max_length=200,
-        null=True,
-        blank=True,
-        help_text=_("Derived remote id of the post."),
-    )
-    send_at = models.DateTimeField(
-        help_text=_("When is this boost scheduled for?"), db_index=True
-    )
-    last_attempt_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("Last failed attempt to send.")
-    )
-    num_failures = models.PositiveIntegerField(
-        default=0, help_text=_("Number of failures this boost has encountered.")
-    )
-    next_retry = models.DateTimeField(
-        null=True, blank=True, help_text=_("Next time to retry boost."), db_index=True
-    )
-    finished_at = models.DateTimeField(
-        null=True, blank=True, help_text=_("When did we succeed in the boost?")
+        related_name="scheduled_boosts",
     )
 
     async def send_boost(self) -> bool:
@@ -458,22 +478,6 @@ class ScheduledBoost(TimeStampedModel, UUIDModel, RulesModel):
         Returns bool to indicate if it was successful or not.
         """
         pass
-
-    def schedule_retry(self) -> None:
-        """
-        Evaluates the error and increments the fail count. Then determines if it
-        schedule a retry or give up.
-        """
-        self.last_attempt_at = timezone.now()
-        if self.num_failures >= settings.MAX_POST_FAILURES - 1:
-            self.boost_status = self.BoostStatus.FAILED
-        else:
-            self.boost_status = self.BoostStatus.ERROR
-            self.next_retry = timezone.now() + timedelta(
-                seconds=settings.POST_FAILURE_RETRY_WAIT
-            )
-        self.num_failures = models.F("num_failures") + 1
-        self.save()
 
     @classmethod
     async def find_jobs(cls) -> dict[str, Iterable]:
