@@ -12,6 +12,7 @@ poetry-remove:
 
 # Installs python dependencies and mypy types.
 _install:
+  poetry lock --no-update
   poetry install
   poetry run mypy --install-types --non-interactive ./
 
