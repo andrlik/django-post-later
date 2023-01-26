@@ -56,6 +56,9 @@ class Account(TimeStampedModel, OwnedModel):
         help_text=_("Status of account."),
         db_index=True,
     )
+    remote_queue = models.BooleanField(
+        default=False, help_text=_("Does this account support remote queuing?")
+    )
 
     @cached_property
     def auth_object(self) -> Optional[RemoteUserAuthModel]:
@@ -141,6 +144,10 @@ class Account(TimeStampedModel, OwnedModel):
         """
 
         return reverse("post_later:account_detail", kwargs={"id": self.id})
+
+    def save(self, *args, **kwargs):
+        self.remote_queue = self.remote_queueing_enabled
+        super().save(*args, **kwargs)
 
     def __str__(self):  # pragma: nocover
         return f"{self.username} ({self.get_account_type_display()}) [{self.get_account_status_display()}]"

@@ -2,6 +2,8 @@ from pathlib import Path
 
 from dj_easy_log import load_loguru
 
+from post_later.appsettings import PLSettings
+
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent
 APPS_DIR = ROOT_DIR
 ADMIN_URL = "admin/"
@@ -244,32 +246,32 @@ REST_FRAMEWORK["TEST_REQUEST_DEFAULT_FORMAT"] = "json"  # noqa
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-load_loguru(globals())
 
 # SOCIAL SERVICE CONNECTIONS
 #
 # ----------------------------------------------------------------------------
 
+PL_SETUP = PLSettings(_env_file="test.env")
+
 # Set these values via your env or other secure method. These clients will be the same for every request.
 # Twitter Connection
-TWITTER_CONSUMER_KEY = ""
-TWITTER_CONSUMER_SECRET = ""
-TWITTER_CALLBACK_URL = "http://127.0.0.1:8000/twitterauth/callback/"
+TWITTER_CONSUMER_KEY = PL_SETUP.TWITTER_CONSUMER_KEY
+TWITTER_CONSUMER_SECRET = PL_SETUP.TWITTER_CONSUMER_SECRET
+TWITTER_CALLBACK_URL = PL_SETUP.TWITTER_CALLBACK_URL
 
 # NOTE: Mastodon connections are per instance so they will all exist in the DB.
 # This will be used by both Twitter and Mastodon as the app name. Change
 # for your use accordingly.
-CLIENT_NAME = "PostLater"
+CLIENT_NAME = PL_SETUP.CLIENT_NAME
 
-POSTLATER_MAX_IMAGE_SIZE = 8  #MB
-POSTLATER_MAX_VIDEO_SIZE = 40 #MB
+POSTLATER_MAX_IMAGE_SIZE = PL_SETUP.MAX_POST_IMAGE_SIZE  # MB
+POSTLATER_MAX_VIDEO_SIZE = PL_SETUP.MAX_POST_VIDEO_SIZE  # MB
 
-ENABLED_ACCOUNT_TYPES = [
-    "MASTODON",
-    # "INSTAGRAM",
-    # "TWITTER",
-]
+ENABLED_ACCOUNT_TYPES = PL_SETUP.ENABLED_ACCOUNT_TYPES
 
-MAX_POST_FAILURES = 20
-POST_FAILURE_RETRY_RATE = 120
+MAX_POST_FAILURES = PL_SETUP.MAX_POST_FAILURES
+POST_FAILURE_RETRY_RATE = PL_SETUP.POST_FAILURE_RETRY_WAIT  # Seconds
+DEFAULT_JOB_LOCK_SECONDS = PL_SETUP.DEFAULT_JOB_LOCK_SECONDS  # In seconds
 
+
+load_loguru(globals())

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Tuple, Any
+from typing import Iterable, Tuple
 
 import os
 import secrets
@@ -14,6 +14,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.files import File
 from django.db import models
 from django.utils import timezone
+from django.utils.functional import classproperty
 from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
 from PIL import Image
@@ -74,7 +75,7 @@ class BaseScheduledSendModel(TimeStampedModel, UUIDModel, RulesModel):
         next_retry (datetime | None): When the next retry is scheduled for.
         remote_id (str | None): Remote id of the published item on the target server.
         remote_url (str | None): Remote URL of the published item on the target server.
-        queued_at (datetime | None): If target server supports queueing, what time was it successfully added to the queue.
+        queued_at (datetime | None): If target server supports queueing, the time successfully added to the queue.
         remote_queue_id (str | None): If the target server supports queueing, what id did it assign to the object.
         finished_at (datetime | None): When was the item fully published.
     """
@@ -91,6 +92,14 @@ class BaseScheduledSendModel(TimeStampedModel, UUIDModel, RulesModel):
         default=status_choices.PENDING,
         help_text=_("Current status of object."),
         db_index=True,
+    )
+    locked_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text=_(
+            "When this task is queued, sets a timestamp for default lock expiration."
+        ),
     )
     num_failures = models.PositiveIntegerField(
         default=0, help_text=_("Number of failed attempts to send.")
@@ -159,14 +168,31 @@ class BaseScheduledSendModel(TimeStampedModel, UUIDModel, RulesModel):
 
     aschedule_retry = sync_to_async(schedule_retry)
 
+    @classproperty
+    def queuing_allowed(cls) -> bool:
+        return False
+
     @classmethod
-    async def find_jobs(cls) -> dict[str, Iterable]:
+    async def find_jobs(cls, remote_queueing: bool = False) -> dict[str, Iterable]:
         """
         Find posts scheduled to send, retry, or follow-up on.
+
+        Args:
+        remote_queueing (bool): Whether the jobs are going to be queued remotely or not.
 
         Returns a dict with four keys, each containing a Queryset: `to_send`, `retry`,`followup`.
         """
         raise NotImplementedError
+
+    @classmethod
+    async def clean_expired_locks(cls) -> int:
+        """
+        Updates any tasks where the `locked_util` time is in the past and sets it to null.
+        Returns the number of locked entries cleaned.
+        """
+        return cls.objects.filter(locked_until__lt=timezone.now()).aupdate(
+            locked_until=None
+        )
 
     class Meta:
         abstract = True
@@ -329,24 +355,33 @@ class ScheduledThread(BaseScheduledSendModel):
         self.save()
 
     @classmethod
-    async def find_jobs(cls) -> dict[str, Iterable]:
+    async def find_jobs(cls, remote_queueing: bool = False) -> dict[str, Iterable]:
         """
         Find threads that need to have posts sent.
         If their scheduled send is in the past, their next_retry is now past, or next_publish has past.
 
+        Args:
+            remote_queueing (bool): Whether the jobs are going to be queued remotely or not. For threads,
+            should always be False.
+
         Returns a dict with three keys and a Queryset for each: "to_start", "next_post", "retries".
         """
+        if remote_queueing and not cls.queuing_allowed:
+            raise ValueError("Remote queuing for threads is not currently supported.")
         current_time = timezone.now()
+        base_queryset = cls.objects.filter(
+            locked_until__lt=current_time
+        ) | cls.objects.filter(locked_until__isnull=True)
         return {
-            "to_start": cls.objects.filter(
+            "to_start": base_queryset.filter(
                 status=cls.ThreadStatus.PENDING, send_at__lte=current_time
-            ),
-            "next_post": cls.objects.filter(
+            ).order_by("send_at"),
+            "next_post": base_queryset.filter(
                 status=cls.ThreadStatus.STARTED, next_publish__lte=current_time
-            ),
-            "retries": cls.objects.filter(
+            ).order_by("next_publish"),
+            "retries": base_queryset.filter(
                 status=cls.ThreadStatus.ERROR, next_retry__lte=current_time
-            ),
+            ).order_by("next_retry"),
         }
 
     class Meta:
@@ -419,23 +454,39 @@ class ScheduledPost(BaseScheduledSendModel):
         return False
 
     @classmethod
-    async def find_jobs(cls) -> dict[str, Iterable]:
+    async def find_jobs(cls, remote_queueing: bool = False) -> dict[str, Iterable]:
         """
         Find posts scheduled to send, retry, or follow-up on.
+
+        Args:
+            remote_queueing (bool): Whether the jobs are going to be queued remotely or not.
 
         Returns a dict with four keys, each containing a Queryset: `to_send`, `retry`,`followup`.
         """
         current_time = timezone.now()
-        return {
-            "to_send": cls.objects.filter(
+        base_queryset = cls.objects.exclude(thread__notnull=True).filter(
+            locked_until__lt=current_time
+        ).select_related("account") | cls.objects.filter(
+            locked_until__isnull=True
+        ).select_related(
+            "account"
+        )
+        if remote_queueing:
+            to_send = base_queryset.filter(
+                post_status=cls.PostStatus.PENDING, account__remote_queue=True
+            ).order_by("send_at")
+        else:
+            to_send = base_queryset.filter(
                 post_status=cls.PostStatus.PENDING, send_at__lte=current_time
-            ).exclude(thread__notnull=True),
-            "retry": cls.objects.filter(
+            ).order_by("send_at")
+        return {
+            "to_send": to_send,
+            "retry": base_queryset.filter(
                 post_status=cls.PostStatus.ERROR, next_retry__lte=current_time
-            ).exclude(thread__notnull=True),
-            "followup": cls.objects.filter(
+            ).order_by("next_retry"),
+            "followup": base_queryset.filter(
                 post_status=cls.PostStatus.QUEUED, send_at__lte=current_time
-            ).exclude(thread__notnull=True),
+            ).order_by("send_at"),
         }
 
     class Meta:
@@ -480,17 +531,27 @@ class ScheduledBoost(BaseScheduledSendModel):
         pass
 
     @classmethod
-    async def find_jobs(cls) -> dict[str, Iterable]:
+    async def find_jobs(cls, remote_queueing: bool = False) -> dict[str, Iterable]:
         """
         Finding pending tasks to boost or retry. Returns a
         dict of Querysets with two keys: "boosts", "retries".
+
+        Args:
+            remote_queueing (bool): Whether the jobs are going to be queued remotely or not.
         """
+        if remote_queueing:
+            raise ValueError(
+                "Scheduled boosts do not currently support remote queueing."
+            )
         current_time = timezone.now()
+        base_queryset = cls.objects.filter(
+            locked_until__lt=current_time
+        ) | cls.objects.filter(locked_until__isnull=True)
         return {
-            "boosts": cls.objects.filter(
+            "boosts": base_queryset.filter(
                 boost_status=cls.BoostStatus.PENDING, send_at__lte=current_time
             ),
-            "retries": cls.objects.filter(
+            "retries": base_queryset.filter(
                 boost_status=cls.BoostStatus.ERROR, next_retry__lte=current_time
             ),
         }
